@@ -64,4 +64,36 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ['src/adapters/playwright/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['../chatgpt/**', '../../application/**', '../../mcp/**', '../../session/**'],
+              message: 'The Playwright adapter owns browser mechanics only and must not depend on provider or orchestration concerns.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/session/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@modelcontextprotocol/*', '../adapters/chatgpt/**', '../mcp/**'],
+              message: 'Session infrastructure must not depend on MCP or ChatGPT page semantics.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

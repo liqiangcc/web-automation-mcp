@@ -22,9 +22,9 @@
 
 ## Phase 2 - Profile/session
 
-- [ ] Implement profile path resolver
-- [ ] Implement exclusive profile lock
-- [ ] Implement Playwright persistent context adapter
+- [x] Implement profile path resolver
+- [x] Implement exclusive profile lock
+- [x] Implement Playwright persistent context adapter
 - [ ] Implement headed login CLI
 - [ ] Implement ChatGPT session probe
 - [ ] Test restart persistence
