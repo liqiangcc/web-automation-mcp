@@ -25,9 +25,9 @@
 - [x] Implement profile path resolver
 - [x] Implement exclusive profile lock
 - [x] Implement Playwright persistent context adapter
-- [ ] Implement headed login CLI
-- [ ] Implement ChatGPT session probe
-- [ ] Test restart persistence
+- [x] Implement headed login CLI
+- [x] Implement ChatGPT session probe
+- [ ] Test restart persistence on a real authenticated local profile
 
 ## Phase 3 - ChatGPT vertical slice
 
