@@ -5,7 +5,6 @@ import type {
   BrowserContextPort,
   BrowserPagePort,
   BrowserPort,
-  LocatorCandidate,
   PersistentBrowserOptions,
 } from '../../src/ports/browser-port.js';
 import type { SessionProbe, SessionStatus } from '../../src/ports/session-probe.js';
@@ -138,11 +137,11 @@ class FakePage implements BrowserPagePort {
     return false;
   }
 
-  public async fill(_locator: LocatorCandidate, _value: string): Promise<void> {}
+  public async fill(): Promise<void> {}
 
-  public async click(_locator: LocatorCandidate): Promise<void> {}
+  public async click(): Promise<void> {}
 
-  public async press(_locator: LocatorCandidate, _key: string): Promise<void> {}
+  public async press(): Promise<void> {}
 
   public async textContents(): Promise<readonly string[]> {
     return [];
