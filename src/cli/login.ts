@@ -1,4 +1,5 @@
 import { ChatGptSessionProbe } from '../adapters/chatgpt/session-probe.js';
+import { CHATGPT_URL } from '../adapters/chatgpt/chatgpt-config.js';
 import { PlaywrightBrowserAdapter } from '../adapters/playwright/playwright-browser.js';
 import { WebAutomationError } from '../domain/errors.js';
 import type { BrowserPagePort, BrowserPort } from '../ports/browser-port.js';
@@ -7,7 +8,6 @@ import { ProfileLock } from '../session/profile-lock.js';
 import { ProfilePathResolver } from '../session/profile-path.js';
 import { SessionManager } from '../session/session-manager.js';
 
-const CHATGPT_URL = 'https://chatgpt.com/';
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
 const DEFAULT_POLL_INTERVAL_MS = 1_000;
 
