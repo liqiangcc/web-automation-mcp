@@ -27,7 +27,9 @@
 - [x] Implement Playwright persistent context adapter
 - [x] Implement headed login CLI
 - [x] Implement ChatGPT session probe
-- [ ] Test restart persistence on a real authenticated local profile
+- [x] Implement fresh-lifecycle session status command
+- [x] Implement two-restart persistence verifier
+- [ ] Run restart persistence verification on a real authenticated local profile (`npm run verify:persistence -- default`)
 
 ## Phase 3 - ChatGPT vertical slice
 
