@@ -54,11 +54,27 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 - `web_ask(profile_id, prompt, conversation_id?)`
 - `web_get_last_response(profile_id, conversation_id)`
 
-Initial login is preferably a local CLI maintenance operation rather than an MCP runtime action:
+## Local authentication and persistence checks
+
+Initial login is a local maintenance operation rather than an MCP runtime action. Credentials stay inside the dedicated browser profile.
 
 ```bash
-web-automation-mcp login --provider chatgpt --profile default
+npm run login -- default
 ```
+
+Check the current profile in a fresh browser lifecycle:
+
+```bash
+npm run session:status -- default
+```
+
+Verify restart persistence by launching, checking, closing, and then independently launching the same profile again. The command passes only when both checks report `AUTHENTICATED`:
+
+```bash
+npm run verify:persistence -- default
+```
+
+The profile is stored under `~/.web-automation-mcp` by default and is protected by an exclusive profile lock. Do not commit or export the profile directory.
 
 ## Documents
 
