@@ -1,0 +1,20 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+
+# Local browser identity and authentication state. Never commit these.
+.web-automation-mcp/
+profiles/
+playwright/.auth/
+
+# Diagnostics may contain page text/screenshots.
+diagnostics/
+
+# Editor/OS files
+.DS_Store
+.idea/
+.vscode/

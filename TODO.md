@@ -2,23 +2,23 @@
 
 ## Phase 0 - Repository bootstrap
 
-- [ ] Initialize Node.js/TypeScript project
-- [ ] Pin Node.js >= 20 (prefer current LTS/runtime used by deployment)
-- [ ] Add MCP TypeScript SDK v2
-- [ ] Add Playwright
-- [ ] Add Vitest
-- [ ] Add ESLint/Prettier or equivalent formatting/linting
-- [ ] Add `.gitignore` for profiles/auth/diagnostics
-- [ ] Add CI: typecheck, lint, unit tests
+- [x] Initialize Node.js/TypeScript project
+- [x] Pin Node.js >= 20 (currently >= 20.19.0)
+- [x] Add MCP TypeScript SDK v2
+- [x] Add Playwright
+- [x] Add Vitest
+- [x] Add ESLint/Prettier or equivalent formatting/linting
+- [x] Add `.gitignore` for profiles/auth/diagnostics
+- [x] Add CI: typecheck, lint, unit tests
 
 ## Phase 1 - Stable core boundaries
 
-- [ ] Define domain types and typed errors
-- [ ] Define `ProviderPort`
-- [ ] Define `BrowserPort`
-- [ ] Define `ProfileStore`
-- [ ] Implement `AskUseCase` against fakes
-- [ ] Add architecture dependency tests or lint boundaries
+- [x] Define domain types and typed errors
+- [x] Define `ProviderPort`
+- [x] Define `BrowserPort`
+- [x] Define `ProfileStore`
+- [x] Implement `AskUseCase` against fakes
+- [x] Add architecture dependency tests or lint boundaries
 
 ## Phase 2 - Profile/session
 
