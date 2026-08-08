@@ -3,7 +3,7 @@
 ## Phase 0 - Repository bootstrap
 
 - [x] Initialize Node.js/TypeScript project
-- [x] Pin Node.js >= 20 (currently >= 20.19.0)
+- [x] Pin Node.js >= 20 (support maintained Node 22+, CI on Node 24 LTS)
 - [x] Add MCP TypeScript SDK v2
 - [x] Add Playwright
 - [x] Add Vitest
