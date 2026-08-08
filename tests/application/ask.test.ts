@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { AskUseCase } from '../../src/application/ask.js';
-import { WebAutomationError } from '../../src/domain/errors.js';
 import type { ProviderAskInput, ProviderPort } from '../../src/ports/provider-port.js';
 
 class FakeChatGptProvider implements ProviderPort {
@@ -50,7 +49,7 @@ describe('AskUseCase', () => {
         profileId: 'chatgpt-default',
         prompt: '   ',
       }),
-    ).rejects.toMatchObject<WebAutomationError>({ code: 'INVALID_REQUEST' });
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
 
     expect(provider.lastInput).toBeUndefined();
   });
