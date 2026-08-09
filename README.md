@@ -19,6 +19,7 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 5. **Provider logic, browser logic, authentication state, completion detection and extraction are separate concerns.**
 6. **Credentials are never exposed through MCP.**
 7. **A browser profile is treated as a secret-bearing local asset.**
+8. **Local paths are workspace-relative at the MCP boundary.**
 
 ## V0.1 scope
 
@@ -31,6 +32,7 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 - Reuse login state through a dedicated persistent `userDataDir`
 - Deterministic semantic locators with fallbacks
 - Send a prompt
+- Upload restricted local files with a prompt
 - Wait for a complete response
 - Return text plus execution metadata
 - Save a completed response directly to a restricted local file without returning the full text
@@ -47,18 +49,53 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 - Automatic username/password or MFA entry
 - Parallel use of one browser profile
 - Self-modifying selectors without validation
+- Arbitrary absolute-path host filesystem access
+- Per-request workspace switching
 
 ## Proposed MCP surface
 
 - `web_session_status(profileId)`
 - `web_new_chat(profileId)`
 - `web_ask(profileId, prompt, conversationId?)`
+- `web_ask_with_files(profileId, prompt, files[], conversationId?)`
 - `web_ask_to_file(profileId, prompt, outputPath, conversationId?, overwrite?)`
 - `web_get_last_response(profileId, conversationId)`
 
-`web_ask_to_file` accepts a relative `outputPath` beneath
-`WEB_AUTOMATION_MCP_OUTPUT_ROOT` (or the MCP working directory when unset). It defaults to refusing
-existing files and returns only file metadata, not the full response text.
+## Workspace-relative paths
+
+For normal local Codex use, relative file paths should mean the same thing to Codex and to this MCP.
+
+Start Codex from the repository being worked on:
+
+```bash
+cd /home/user/project
+codex
+```
+
+The MCP runtime treats its startup working directory as the default workspace root. Therefore:
+
+```text
+docs/design.pdf
+src/service/UserService.java
+```
+
+are resolved relative to that workspace, not to an unrelated global directory.
+
+Default root model:
+
+```text
+workspaceRoot = WEB_AUTOMATION_MCP_WORKSPACE ?? startup cwd
+inputRoot = WEB_AUTOMATION_MCP_INPUT_ROOT ?? workspaceRoot
+outputRoot = WEB_AUTOMATION_MCP_OUTPUT_ROOT ?? workspaceRoot/mcp-output
+```
+
+`WEB_AUTOMATION_MCP_INPUT_ROOT` and `WEB_AUTOMATION_MCP_OUTPUT_ROOT` remain advanced overrides. MCP tool arguments themselves remain relative paths; callers cannot provide a new workspace root per request.
+
+The workspace root is stable for the MCP process lifetime. If the agent changes shell directories later, the MCP root does not silently follow that `cd`; restart from the intended repository or configure `WEB_AUTOMATION_MCP_WORKSPACE` explicitly.
+
+`web_ask_with_files` accepts relative paths beneath the effective input root and never returns canonical input paths.
+
+`web_ask_to_file` accepts a relative `outputPath`. By default it writes beneath `<workspace>/mcp-output`, refuses existing files unless overwrite is explicitly enabled, and returns file metadata rather than the full response text.
 
 ## Local authentication and persistence checks
 
@@ -86,6 +123,8 @@ The profile is stored under `~/.web-automation-mcp` by default and is protected 
 
 - `docs/REQUIREMENTS.md` - product and reliability requirements
 - `docs/ARCHITECTURE.md` - boundaries and dependency rules
+- `docs/WORKSPACE_PATHS.md` - Codex workspace-relative path contract and root precedence
+- `docs/FILE_INPUT_AND_UPLOAD.md` - restricted local input and provider attachment design
 - `docs/FEASIBILITY.md` - feasibility evidence, risks and go/no-go criteria
 - `docs/POC_PLAN.md` - executable proof-of-concept plan
 - `docs/LOCAL_TESTING.md` - WSL/Linux environment setup and real local Codex MCP validation
