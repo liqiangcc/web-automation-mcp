@@ -2,6 +2,9 @@ import { WebAutomationError } from '../../domain/errors.js';
 import type { BrowserPagePort } from '../../ports/browser-port.js';
 import { ChatGptSessionProbe } from './session-probe.js';
 
+const DEFAULT_UNKNOWN_STABILIZATION_TIMEOUT_MS = 5_000;
+const DEFAULT_POLL_INTERVAL_MS = 250;
+
 export interface AuthenticationWaitOptions {
   readonly timeoutMs?: number;
   readonly pollIntervalMs?: number;
@@ -13,8 +16,8 @@ export async function requireAuthenticatedChatGptSession(
   page: BrowserPagePort,
   options: AuthenticationWaitOptions = {},
 ): Promise<void> {
-  const timeoutMs = options.timeoutMs ?? 60_000;
-  const pollIntervalMs = options.pollIntervalMs ?? 250;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_UNKNOWN_STABILIZATION_TIMEOUT_MS;
+  const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const now = options.now ?? Date.now;
   const sleep =
     options.sleep ?? ((delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)));
@@ -22,18 +25,28 @@ export async function requireAuthenticatedChatGptSession(
   const deadline = now() + timeoutMs;
   let sessionStatus = await probe.check();
 
-  while (sessionStatus !== 'AUTHENTICATED' && now() < deadline) {
-    await sleep(pollIntervalMs);
-    sessionStatus = await probe.check();
+  if (sessionStatus === 'AUTH_REQUIRED') {
+    throwAuthRequired();
   }
 
-  if (sessionStatus === 'AUTH_REQUIRED') {
-    throw new WebAutomationError('AUTH_REQUIRED', 'ChatGPT browser profile is not authenticated');
+  while (sessionStatus === 'UNKNOWN' && now() < deadline) {
+    await sleep(pollIntervalMs);
+    sessionStatus = await probe.check();
+    if (sessionStatus === 'AUTH_REQUIRED') {
+      throwAuthRequired();
+    }
   }
-  if (sessionStatus === 'UNKNOWN') {
-    throw new WebAutomationError(
-      'PROVIDER_UNAVAILABLE',
-      'ChatGPT page is not in a recognized authenticated state',
-    );
+
+  if (sessionStatus === 'AUTHENTICATED') {
+    return;
   }
+
+  throw new WebAutomationError(
+    'PROVIDER_UNAVAILABLE',
+    'ChatGPT page is not in a recognized authenticated state',
+  );
+}
+
+function throwAuthRequired(): never {
+  throw new WebAutomationError('AUTH_REQUIRED', 'ChatGPT browser profile is not authenticated');
 }
