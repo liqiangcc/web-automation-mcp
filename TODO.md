@@ -124,11 +124,11 @@
 - [x] Implement ChatGPT conversation reader with explicit `conversationId` and bounded completeness handling
 - [x] Add `GetConversationUseCase` with a deterministic transcript response-size guard
 - [x] Add `web_get_conversation`
-- [ ] Add deterministic transcript renderer
-- [ ] Add `ExportConversationUseCase` using `AnswerFilePort`
-- [ ] Add `web_export_conversation_to_file`
+- [x] Add deterministic transcript renderer
+- [x] Add `ExportConversationUseCase` using `AnswerFilePort`
+- [x] Add `web_export_conversation_to_file`
 - [ ] Add architecture/redaction/pagination/virtualization unit tests
-- [ ] Add the three tools to MCP Inspector smoke coverage
+- [x] Add the three tools to MCP Inspector smoke coverage
 - [ ] Validate list -> read -> continue -> read/export on a real authenticated profile
 - [ ] Validate conversation operations through shared-CDP mode when available
 
