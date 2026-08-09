@@ -19,7 +19,7 @@ describe('failure classification matrix', () => {
   it('classifies an explicit login page as AUTH_REQUIRED', async () => {
     const page = new FailurePage({ visible: (locator) => isLogin(locator) });
 
-    await expect(requireAuthenticatedChatGptSession(page)).rejects.toMatchObject({
+    await expect(requireAuthenticatedChatGptSession(page, { timeoutMs: 0 })).rejects.toMatchObject({
       code: 'AUTH_REQUIRED',
     });
   });
@@ -27,7 +27,7 @@ describe('failure classification matrix', () => {
   it('classifies an unrecognized provider page as PROVIDER_UNAVAILABLE', async () => {
     const page = new FailurePage({ visible: () => false });
 
-    await expect(requireAuthenticatedChatGptSession(page)).rejects.toMatchObject({
+    await expect(requireAuthenticatedChatGptSession(page, { timeoutMs: 0 })).rejects.toMatchObject({
       code: 'PROVIDER_UNAVAILABLE',
     });
   });

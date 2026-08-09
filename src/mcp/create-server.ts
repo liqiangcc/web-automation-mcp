@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { AutomationApplicationPort } from '../ports/automation-application-port.js';
 import {
   handleWebAsk,
+  handleWebAskToFile,
   handleWebGetLastResponse,
   handleWebNewChat,
   handleWebSessionStatus,
@@ -100,6 +101,49 @@ export function createMcpServer(application: AutomationApplicationPort): McpServ
           provider: provider ?? 'chatgpt',
           profileId,
           prompt,
+          ...(conversationId === undefined ? {} : { conversationId }),
+        },
+        application,
+      ),
+  );
+
+  server.registerTool(
+    'web_ask_to_file',
+    {
+      title: 'Ask a web AI and save the response',
+      description:
+        'Send a prompt through an authenticated web AI session and save the completed response directly to a UTF-8 file. The full response is not returned to the MCP client. outputPath must be relative to WEB_AUTOMATION_MCP_OUTPUT_ROOT, or to the MCP working directory when that variable is unset.',
+      inputSchema: z.object({
+        provider: ProviderSchema.describe('Web provider. ChatGPT is the only provider in v0.1.'),
+        profileId: ProfileIdSchema,
+        prompt: z.string().min(1).describe('Prompt to submit to the web AI.'),
+        outputPath: z
+          .string()
+          .min(1)
+          .max(4096)
+          .describe('Relative UTF-8 output file path inside the configured output root.'),
+        overwrite: z
+          .boolean()
+          .optional()
+          .describe('Replace an existing output file. Defaults to false.'),
+        conversationId: ConversationIdSchema.optional().describe(
+          'Existing provider conversation id. Omit to start a new conversation.',
+        ),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+      },
+    },
+    async ({ provider, profileId, prompt, outputPath, overwrite, conversationId }) =>
+      handleWebAskToFile(
+        {
+          provider: provider ?? 'chatgpt',
+          profileId,
+          prompt,
+          outputPath,
+          ...(overwrite === undefined ? {} : { overwrite }),
           ...(conversationId === undefined ? {} : { conversationId }),
         },
         application,

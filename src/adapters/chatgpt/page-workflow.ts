@@ -3,7 +3,10 @@ import {
   AssistantResponseBaselineTracker,
   ChatGptAssistantResponseReader,
 } from './assistant-responses.js';
-import { requireAuthenticatedChatGptSession } from './authentication.js';
+import {
+  requireAuthenticatedChatGptSession,
+  type AuthenticationWaitOptions,
+} from './authentication.js';
 import {
   ChatGptCompletionDetector,
   ChatGptGenerationProbe,
@@ -14,6 +17,7 @@ import { ChatGptPromptSubmitter } from './prompt-submit.js';
 import { ChatGptPlainTextResponseExtractor } from './response-extractor.js';
 
 export interface ChatGptPageWorkflowOptions {
+  readonly authentication?: AuthenticationWaitOptions;
   readonly completion?: CompletionDetectorOptions;
   readonly completionDependencies?: CompletionDetectorDependencies;
 }
@@ -25,7 +29,7 @@ export class ChatGptPageWorkflow {
   ) {}
 
   public async ask(prompt: string): Promise<string> {
-    await requireAuthenticatedChatGptSession(this.page);
+    await requireAuthenticatedChatGptSession(this.page, this.options.authentication);
 
     const responses = new ChatGptAssistantResponseReader(this.page);
     const baseline = await new AssistantResponseBaselineTracker(responses).capture();

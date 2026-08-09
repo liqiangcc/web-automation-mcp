@@ -93,6 +93,17 @@ When a provider action fails, collect enough information for repair without coll
 
 A profile must be owned by at most one browser process. V0.1 serializes requests per profile.
 
+### FR-10 Save response to file
+
+The MCP server may save a completed provider response directly to a UTF-8 file without returning the
+full response to the MCP client. File output must:
+
+- stay beneath a configured output root;
+- reject absolute paths, traversal and symlink escape;
+- refuse existing files unless overwrite is explicitly enabled;
+- publish through an atomic same-directory operation;
+- return only the conversation id, canonical path, byte count and SHA-256 digest.
+
 ## 4. Non-functional requirements
 
 ### Reliability
@@ -110,6 +121,7 @@ Every execution gets a request id and structured lifecycle events:
 - Profile directories are outside the repository by default.
 - `.gitignore` excludes all auth/profile state.
 - MCP tools never return cookies, authorization headers or tokens.
+- File-output tools never include the complete provider response in MCP results or diagnostics.
 - Logs redact prompt/response content when configured.
 - Diagnostic screenshots are opt-in and stored locally.
 

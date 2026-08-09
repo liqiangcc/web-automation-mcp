@@ -159,6 +159,16 @@ function createApplication(
         conversationId: request.conversationId ?? 'conversation-1',
         responseText: 'secret response text',
       })),
+    askToFile:
+      overrides.askToFile ??
+      (async (request) => ({
+        provider: request.provider,
+        profileId: request.profileId,
+        conversationId: request.conversationId ?? 'conversation-1',
+        filePath: '/safe/output/answer.md',
+        bytesWritten: 20,
+        sha256: 'safe-hash',
+      })),
     sessionStatus:
       overrides.sessionStatus ??
       (async (request) => ({

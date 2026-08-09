@@ -11,6 +11,8 @@ import { SessionManager } from '../session/session-manager.js';
 export interface SessionStatusCommand {
   readonly profileId: string;
   readonly headless?: boolean;
+  readonly timeoutMs?: number;
+  readonly pollIntervalMs?: number;
 }
 
 export interface SessionStatusResult {
@@ -52,12 +54,19 @@ export async function checkSessionStatus(
     try {
       await page.goto(CHATGPT_URL);
     } catch (error) {
-      throw new WebAutomationError('NAVIGATION_FAILED', 'Failed to open ChatGPT for session check', {
-        cause: error,
-      });
+      throw new WebAutomationError(
+        'NAVIGATION_FAILED',
+        'Failed to open ChatGPT for session check',
+        {
+          cause: error,
+        },
+      );
     }
 
-    const status = await new SessionManager(dependencies.createProbe(page)).check();
+    const status = await new SessionManager(dependencies.createProbe(page)).waitForAuthenticated({
+      timeoutMs: command.timeoutMs ?? 60_000,
+      pollIntervalMs: command.pollIntervalMs ?? 250,
+    });
     return { profileId: command.profileId, status };
   } finally {
     try {

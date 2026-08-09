@@ -17,7 +17,12 @@ import type {
   SessionStatusRequest,
   SessionStatusResult,
 } from '../ports/automation-application-port.js';
-import type { AskRequest, AskResult } from '../domain/conversation.js';
+import type {
+  AskRequest,
+  AskResult,
+  AskToFileRequest,
+  AskToFileResult,
+} from '../domain/conversation.js';
 import type { DiagnosticsBundleSink, LifecycleSink } from '../ports/observability-port.js';
 
 export interface ObservedAutomationApplicationDependencies {
@@ -43,8 +48,14 @@ export class ObservedAutomationApplication implements AutomationApplicationPort 
     return this.observe('ask', contextFor(request), () => this.inner.ask(request));
   }
 
+  public askToFile(request: AskToFileRequest): Promise<AskToFileResult> {
+    return this.observe('ask_to_file', contextFor(request), () => this.inner.askToFile(request));
+  }
+
   public sessionStatus(request: SessionStatusRequest): Promise<SessionStatusResult> {
-    return this.observe('session_status', contextFor(request), () => this.inner.sessionStatus(request));
+    return this.observe('session_status', contextFor(request), () =>
+      this.inner.sessionStatus(request),
+    );
   }
 
   public newChat(request: NewChatRequest): Promise<NewChatResult> {

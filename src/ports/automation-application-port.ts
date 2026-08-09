@@ -1,6 +1,8 @@
 import type {
   AskRequest,
   AskResult,
+  AskToFileRequest,
+  AskToFileResult,
   ConversationId,
   ProfileId,
   ProviderId,
@@ -44,6 +46,7 @@ export interface LastResponseResult {
 
 export interface AutomationApplicationPort {
   ask(request: AskRequest): Promise<AskResult>;
+  askToFile(request: AskToFileRequest): Promise<AskToFileResult>;
   sessionStatus(request: SessionStatusRequest): Promise<SessionStatusResult>;
   newChat(request: NewChatRequest): Promise<NewChatResult>;
   getLastResponse(request: LastResponseRequest): Promise<LastResponseResult>;

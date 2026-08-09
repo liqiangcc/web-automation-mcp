@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ChatGptSessionProbe } from '../../../src/adapters/chatgpt/session-probe.js';
-import type {
-  BrowserPagePort,
-  LocatorCandidate,
-} from '../../../src/ports/browser-port.js';
+import type { BrowserPagePort, LocatorCandidate } from '../../../src/ports/browser-port.js';
 
 describe('ChatGptSessionProbe', () => {
   it('prefers explicit login state even when the anonymous prompt is visible', async () => {
@@ -15,10 +12,29 @@ describe('ChatGptSessionProbe', () => {
     await expect(new ChatGptSessionProbe(page).check()).resolves.toBe('AUTH_REQUIRED');
   });
 
+  it('recognizes the anonymous login modal even when no login button is visible', async () => {
+    const page = new FakePage((locator) => {
+      return (
+        (locator.kind === 'css' && locator.value === '#modal-no-auth-login') ||
+        isPromptLocator(locator)
+      );
+    });
+
+    await expect(new ChatGptSessionProbe(page).check()).resolves.toBe('AUTH_REQUIRED');
+  });
+
   it('reports authenticated when login controls are absent and the prompt is visible', async () => {
     const page = new FakePage((locator) => isPromptLocator(locator));
 
     await expect(new ChatGptSessionProbe(page).check()).resolves.toBe('AUTHENTICATED');
+  });
+
+  it('does not treat a generic login-form textbox as an authenticated prompt', async () => {
+    const page = new FakePage((locator) => {
+      return locator.kind === 'role' && locator.role === 'textbox' && locator.name === undefined;
+    });
+
+    await expect(new ChatGptSessionProbe(page).check()).resolves.toBe('UNKNOWN');
   });
 
   it('reports unknown when no known authentication markers are visible', async () => {
@@ -37,9 +53,7 @@ describe('ChatGptSessionProbe', () => {
 });
 
 class FakePage implements BrowserPagePort {
-  public constructor(
-    private readonly visible: (locator: LocatorCandidate) => boolean,
-  ) {}
+  public constructor(private readonly visible: (locator: LocatorCandidate) => boolean) {}
 
   public async goto(): Promise<void> {}
 
@@ -59,7 +73,10 @@ class FakePage implements BrowserPagePort {
 }
 
 function isLoginLocator(locator: LocatorCandidate): boolean {
-  return locator.kind === 'role' && locator.name === 'Log in';
+  return (
+    (locator.kind === 'role' && locator.name === 'Log in') ||
+    (locator.kind === 'testId' && locator.value === 'login-button')
+  );
 }
 
 function isPromptLocator(locator: LocatorCandidate): boolean {

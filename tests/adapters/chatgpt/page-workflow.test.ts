@@ -31,7 +31,11 @@ describe('ChatGptPageWorkflow', () => {
     const page = new FakeChatPage();
     page.authenticated = false;
 
-    await expect(new ChatGptPageWorkflow(page).ask('hello')).rejects.toMatchObject({
+    const workflow = new ChatGptPageWorkflow(page, {
+      authentication: { timeoutMs: 0 },
+    });
+
+    await expect(workflow.ask('hello')).rejects.toMatchObject({
       code: 'AUTH_REQUIRED',
     });
     expect(page.filledPrompt).toBeUndefined();

@@ -8,7 +8,10 @@ export type ExecutionErrorCode =
   | 'GENERATION_TIMEOUT'
   | 'EXTRACTION_FAILED'
   | 'PROVIDER_UNAVAILABLE'
-  | 'PROVIDER_CHANGED';
+  | 'PROVIDER_CHANGED'
+  | 'OUTPUT_PATH_NOT_ALLOWED'
+  | 'FILE_ALREADY_EXISTS'
+  | 'FILE_WRITE_FAILED';
 
 export class WebAutomationError extends Error {
   public constructor(

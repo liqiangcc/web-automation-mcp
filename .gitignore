@@ -14,6 +14,9 @@ playwright/.auth/
 # Diagnostics may contain page text/screenshots.
 diagnostics/
 
+# Responses written by web_ask_to_file during local use and testing.
+mcp-output/
+
 # Editor/OS files
 .DS_Store
 .idea/

@@ -51,6 +51,7 @@ const required = [
   'web_session_status',
   'web_new_chat',
   'web_ask',
+  'web_ask_to_file',
   'web_get_last_response',
 ];
 for (const name of required) {

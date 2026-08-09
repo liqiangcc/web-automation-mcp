@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { WebAutomationError } from '../../src/domain/errors.js';
 import {
   handleWebAsk,
+  handleWebAskToFile,
   handleWebGetLastResponse,
   handleWebNewChat,
   handleWebSessionStatus,
@@ -15,9 +16,11 @@ import type {
   SessionStatusRequest,
 } from '../../src/ports/automation-application-port.js';
 import type { AskRequest, AskResult } from '../../src/domain/conversation.js';
+import type { AskToFileRequest, AskToFileResult } from '../../src/domain/conversation.js';
 
 class FakeApplication implements AutomationApplicationPort {
   public askRequests: AskRequest[] = [];
+  public askToFileRequests: AskToFileRequest[] = [];
   public statusRequests: SessionStatusRequest[] = [];
   public newChatRequests: NewChatRequest[] = [];
   public lastResponseRequests: LastResponseRequest[] = [];
@@ -29,6 +32,18 @@ class FakeApplication implements AutomationApplicationPort {
       profileId: request.profileId,
       conversationId: request.conversationId ?? 'conversation-1',
       responseText: 'final answer',
+    };
+  }
+
+  public async askToFile(request: AskToFileRequest): Promise<AskToFileResult> {
+    this.askToFileRequests.push(request);
+    return {
+      provider: request.provider,
+      profileId: request.profileId,
+      conversationId: request.conversationId ?? 'conversation-file-1',
+      filePath: '/workspace/results/answer.md',
+      bytesWritten: 12,
+      sha256: 'abc123',
     };
   }
 
@@ -94,9 +109,7 @@ describe('MCP tool handlers', () => {
       status: 'READY',
       conversationId: null,
     });
-    expect(application.newChatRequests).toEqual([
-      { provider: 'chatgpt', profileId: 'default' },
-    ]);
+    expect(application.newChatRequests).toEqual([{ provider: 'chatgpt', profileId: 'default' }]);
   });
 
   it('returns the response text and conversation handle from web_ask', async () => {
@@ -120,6 +133,46 @@ describe('MCP tool handlers', () => {
       conversationId: 'conversation-0',
       responseText: 'final answer',
     });
+  });
+
+  it('returns only file metadata from web_ask_to_file', async () => {
+    const application = new FakeApplication();
+
+    const result = await handleWebAskToFile(
+      {
+        provider: 'chatgpt',
+        profileId: 'default',
+        prompt: 'write a long private answer',
+        outputPath: 'results/answer.md',
+      },
+      application,
+    );
+
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Saved web AI response to /workspace/results/answer.md (12 bytes).',
+      },
+    ]);
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      provider: 'chatgpt',
+      profileId: 'default',
+      conversationId: 'conversation-file-1',
+      filePath: '/workspace/results/answer.md',
+      bytesWritten: 12,
+      sha256: 'abc123',
+    });
+    expect(JSON.stringify(result)).not.toContain('long private answer');
+    expect(application.askToFileRequests).toEqual([
+      {
+        provider: 'chatgpt',
+        profileId: 'default',
+        prompt: 'write a long private answer',
+        outputPath: 'results/answer.md',
+        overwrite: false,
+      },
+    ]);
   });
 
   it('returns the latest assistant response for an existing conversation', async () => {

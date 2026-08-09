@@ -8,7 +8,7 @@ import { ProfileLock } from '../session/profile-lock.js';
 import { ProfilePathResolver } from '../session/profile-path.js';
 import { SessionManager } from '../session/session-manager.js';
 
-const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
+const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_POLL_INTERVAL_MS = 1_000;
 
 export interface LoginCommand {

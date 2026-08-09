@@ -33,6 +33,7 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 - Send a prompt
 - Wait for a complete response
 - Return text plus execution metadata
+- Save a completed response directly to a restricted local file without returning the full text
 - Detect authentication loss and provider-UI mismatch
 - Diagnostic artifacts on failure
 
@@ -49,10 +50,15 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 
 ## Proposed MCP surface
 
-- `web_session_status(profile_id)`
-- `web_new_chat(profile_id)`
-- `web_ask(profile_id, prompt, conversation_id?)`
-- `web_get_last_response(profile_id, conversation_id)`
+- `web_session_status(profileId)`
+- `web_new_chat(profileId)`
+- `web_ask(profileId, prompt, conversationId?)`
+- `web_ask_to_file(profileId, prompt, outputPath, conversationId?, overwrite?)`
+- `web_get_last_response(profileId, conversationId)`
+
+`web_ask_to_file` accepts a relative `outputPath` beneath
+`WEB_AUTOMATION_MCP_OUTPUT_ROOT` (or the MCP working directory when unset). It defaults to refusing
+existing files and returns only file metadata, not the full response text.
 
 ## Local authentication and persistence checks
 
@@ -82,4 +88,5 @@ The profile is stored under `~/.web-automation-mcp` by default and is protected 
 - `docs/ARCHITECTURE.md` - boundaries and dependency rules
 - `docs/FEASIBILITY.md` - feasibility evidence, risks and go/no-go criteria
 - `docs/POC_PLAN.md` - executable proof-of-concept plan
+- `docs/LOCAL_TESTING.md` - WSL/Linux environment setup and real local Codex MCP validation
 - `TODO.md` - implementation order

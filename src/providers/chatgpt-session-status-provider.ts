@@ -4,6 +4,7 @@ import type { ProfileId } from '../domain/conversation.js';
 import { WebAutomationError } from '../domain/errors.js';
 import type { SessionStatusResult } from '../ports/automation-application-port.js';
 import type { BrowserSessionPort } from '../ports/browser-session-port.js';
+import { SessionManager } from '../session/session-manager.js';
 
 export class ChatGptSessionStatusProvider {
   public readonly id = 'chatgpt' as const;
@@ -24,7 +25,12 @@ export class ChatGptSessionStatusProvider {
         );
       }
 
-      const status = await new ChatGptSessionProbe(session.page).check();
+      const status = await new SessionManager(
+        new ChatGptSessionProbe(session.page),
+      ).waitForAuthenticated({
+        timeoutMs: 60_000,
+        pollIntervalMs: 250,
+      });
       return {
         provider: this.id,
         profileId,

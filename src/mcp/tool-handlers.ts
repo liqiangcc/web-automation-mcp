@@ -6,7 +6,13 @@ import type {
   NewChatRequest,
   SessionStatusRequest,
 } from '../ports/automation-application-port.js';
-import type { AskRequest, ConversationId, ProfileId, ProviderId } from '../domain/conversation.js';
+import type {
+  AskRequest,
+  AskToFileRequest,
+  ConversationId,
+  ProfileId,
+  ProviderId,
+} from '../domain/conversation.js';
 import { WebAutomationError } from '../domain/errors.js';
 
 export interface WebSessionStatusToolInput {
@@ -19,6 +25,11 @@ export interface WebAskToolInput {
   readonly profileId: ProfileId;
   readonly prompt: string;
   readonly conversationId?: ConversationId;
+}
+
+export interface WebAskToFileToolInput extends WebAskToolInput {
+  readonly outputPath: string;
+  readonly overwrite?: boolean;
 }
 
 export interface WebNewChatToolInput {
@@ -65,9 +76,7 @@ export async function handleWebAsk(
       provider: input.provider,
       profileId: input.profileId,
       prompt: input.prompt,
-      ...(input.conversationId === undefined
-        ? {}
-        : { conversationId: input.conversationId }),
+      ...(input.conversationId === undefined ? {} : { conversationId: input.conversationId }),
     };
     const result = await application.ask(request);
     return {
@@ -78,6 +87,42 @@ export async function handleWebAsk(
         profileId: result.profileId,
         conversationId: result.conversationId,
         responseText: result.responseText,
+      },
+    };
+  } catch (error) {
+    return toMcpToolError(error);
+  }
+}
+
+export async function handleWebAskToFile(
+  input: WebAskToFileToolInput,
+  application: AutomationApplicationPort,
+): Promise<CallToolResult> {
+  try {
+    const request: AskToFileRequest = {
+      provider: input.provider,
+      profileId: input.profileId,
+      prompt: input.prompt,
+      outputPath: input.outputPath,
+      overwrite: input.overwrite ?? false,
+      ...(input.conversationId === undefined ? {} : { conversationId: input.conversationId }),
+    };
+    const result = await application.askToFile(request);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Saved web AI response to ${result.filePath} (${result.bytesWritten} bytes).`,
+        },
+      ],
+      structuredContent: {
+        ok: true,
+        provider: result.provider,
+        profileId: result.profileId,
+        conversationId: result.conversationId,
+        filePath: result.filePath,
+        bytesWritten: result.bytesWritten,
+        sha256: result.sha256,
       },
     };
   } catch (error) {
@@ -187,5 +232,11 @@ function publicMessageFor(error: WebAutomationError): string {
       return 'The provider page is currently unavailable.';
     case 'PROVIDER_CHANGED':
       return 'The provider page behavior appears to have changed.';
+    case 'OUTPUT_PATH_NOT_ALLOWED':
+      return 'The output path is outside the configured output directory.';
+    case 'FILE_ALREADY_EXISTS':
+      return 'The output file already exists. Enable overwrite or choose another path.';
+    case 'FILE_WRITE_FAILED':
+      return 'The provider response could not be saved to the requested file.';
   }
 }

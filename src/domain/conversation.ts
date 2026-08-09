@@ -15,3 +15,17 @@ export interface AskResult {
   readonly conversationId: ConversationId;
   readonly responseText: string;
 }
+
+export interface AskToFileRequest extends AskRequest {
+  readonly outputPath: string;
+  readonly overwrite?: boolean;
+}
+
+export interface AskToFileResult {
+  readonly provider: ProviderId;
+  readonly profileId: ProfileId;
+  readonly conversationId: ConversationId;
+  readonly filePath: string;
+  readonly bytesWritten: number;
+  readonly sha256: string;
+}

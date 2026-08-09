@@ -14,7 +14,9 @@ import type { DiagnosticsBundleSink, LifecycleSink } from '../../src/ports/obser
 const temporaryRoots: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+  await Promise.all(
+    temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
+  );
 });
 
 describe('security and redaction', () => {
@@ -45,6 +47,14 @@ describe('security and redaction', () => {
       ask: async () => {
         throw new WebAutomationError('GENERATION_TIMEOUT', secrets.exception);
       },
+      askToFile: async (request) => ({
+        provider: request.provider,
+        profileId: request.profileId,
+        conversationId: request.conversationId ?? 'conversation-file',
+        filePath: '/safe/output.md',
+        bytesWritten: 1,
+        sha256: 'hash',
+      }),
       sessionStatus: async (request) => ({
         provider: request.provider,
         profileId: request.profileId,
@@ -78,7 +88,10 @@ describe('security and redaction', () => {
       }),
     ).rejects.toMatchObject({ code: 'GENERATION_TIMEOUT' });
 
-    const serialized = JSON.stringify({ lifecycle: lifecycle.events, diagnostics: diagnostics.bundles });
+    const serialized = JSON.stringify({
+      lifecycle: lifecycle.events,
+      diagnostics: diagnostics.bundles,
+    });
     for (const secret of Object.values(secrets)) {
       expect(serialized).not.toContain(secret);
     }

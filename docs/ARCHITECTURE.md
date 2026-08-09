@@ -143,10 +143,12 @@ src/
   ports/
     provider-port.ts
     browser-port.ts
+    answer-file-port.ts
     profile-store.ts
     diagnostics-sink.ts
   application/
     ask.ts
+    ask-to-file.ts
     new-chat.ts
     session-status.ts
   session/
@@ -172,6 +174,7 @@ src/
   cli/
     login.ts
   infrastructure/
+    answer-file.ts
     diagnostics.ts
     logger.ts
 ```
