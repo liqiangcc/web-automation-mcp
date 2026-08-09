@@ -36,9 +36,9 @@
 - [x] Semantic target registry
 - [x] Prompt input resolver
 - [x] Prompt submit
-- [ ] Assistant response baseline tracking
-- [ ] Completion detector
-- [ ] Plain-text response extractor
+- [x] Assistant response baseline tracking
+- [x] Completion detector
+- [x] Plain-text response extractor
 - [ ] Conversation handle persistence
 
 ## Phase 4 - MCP
