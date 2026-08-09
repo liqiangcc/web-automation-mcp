@@ -63,6 +63,8 @@
 - [x] Fail runtime ChatGPT operations immediately on explicit `AUTH_REQUIRED`
 - [x] Retry only transient `UNKNOWN` authentication state with a bounded five-second stabilization window
 - [x] Preserve long-wait `login` semantics while allowing `session:status` to terminate immediately on explicit auth-required state
+- [x] Classify explicit ChatGPT rate-limit/degraded-page signals without scanning normal conversation content
+- [x] Expose `PROVIDER_RATE_LIMITED` as a typed MCP-safe provider failure
 
 ### Event-driven response completion
 
@@ -123,7 +125,9 @@
 - [x] Add `ListConversationsUseCase`
 - [x] Add `web_list_conversations`
 - [x] Add executable `validate:conversations` disposable list -> paginate -> continue -> reopen acceptance runner
-- [ ] Run `npm run validate:conversations -- --profile default` on a real authenticated profile and obtain PASS
+- [x] Fail closed instead of returning a false empty list when ChatGPT history cannot be positively verified
+- [x] Accept both relative and absolute ChatGPT `/c/<id>` history link shapes
+- [ ] Re-run `npm run validate:conversations -- --profile default` after provider rate limiting clears and obtain PASS
 - [x] Implement ChatGPT conversation reader with explicit `conversationId` and bounded completeness handling
 - [x] Add `GetConversationUseCase` with a deterministic transcript response-size guard
 - [x] Add `web_get_conversation`
