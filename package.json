@@ -16,6 +16,7 @@
     "validate:live": "npm run build --silent && node dist/cli/live-validation-main.js",
     "validate:completion": "npm run build --silent && node dist/cli/completion-validation-main.js",
     "validate:conversations": "npm run build --silent && node dist/cli/conversation-validation-main.js",
+    "validate:cleanup": "npm run build --silent && node dist/cli/conversation-cleanup-validation-main.js",
     "mcp:smoke": "node scripts/mcp-inspector-smoke.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint src tests",
