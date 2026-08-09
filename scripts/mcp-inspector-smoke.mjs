@@ -53,6 +53,7 @@ const required = [
   'web_list_conversations',
   'web_get_conversation',
   'web_export_conversation_to_file',
+  'web_delete_conversation',
   'web_new_chat',
   'web_ask',
   'web_ask_with_files',
