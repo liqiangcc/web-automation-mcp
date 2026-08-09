@@ -27,6 +27,11 @@ import type {
   SessionStatusRequest,
   SessionStatusResult,
 } from '../ports/automation-application-port.js';
+import type {
+  ConversationCatalogApplicationPort,
+  ListConversationsRequest,
+  ListConversationsResult,
+} from '../ports/conversation-catalog-port.js';
 import type { DiagnosticsBundleSink, LifecycleSink } from '../ports/observability-port.js';
 
 export interface ObservedAutomationApplicationDependencies {
@@ -37,13 +42,15 @@ export interface ObservedAutomationApplicationDependencies {
 }
 
 export class ObservedAutomationApplication
-  implements AutomationApplicationPort, AttachmentApplicationPort
+  implements AutomationApplicationPort, AttachmentApplicationPort, ConversationCatalogApplicationPort
 {
   private readonly createRequestId: () => string;
   private readonly now: () => Date;
 
   public constructor(
-    private readonly inner: AutomationApplicationPort & Partial<AttachmentApplicationPort>,
+    private readonly inner: AutomationApplicationPort &
+      Partial<AttachmentApplicationPort> &
+      Partial<ConversationCatalogApplicationPort>,
     private readonly dependencies: ObservedAutomationApplicationDependencies,
   ) {
     this.createRequestId = dependencies.createRequestId ?? randomUUID;
@@ -94,6 +101,16 @@ export class ObservedAutomationApplication
     return this.observe('get_last_response', contextFor(request), () =>
       this.inner.getLastResponse(request),
     );
+  }
+
+  public listConversations(request: ListConversationsRequest): Promise<ListConversationsResult> {
+    return this.observe('list_conversations', contextFor(request), async () => {
+      const listConversations = this.inner.listConversations;
+      if (listConversations === undefined) {
+        throw new Error('Conversation catalog capability is not configured.');
+      }
+      return listConversations.call(this.inner, request);
+    });
   }
 
   private async observe<T>(
