@@ -75,12 +75,12 @@
 - [x] Define Codex startup cwd as the default MCP workspace concept
 - [x] Define root precedence: `WORKSPACE`, then optional input/output overrides
 - [x] Keep MCP file arguments relative and forbid request-controlled workspace roots
-- [ ] Add stable workspace-root resolver at runtime startup
-- [ ] Default input root to workspace root
-- [ ] Default output root to `<workspace>/mcp-output`
-- [ ] Preserve `WEB_AUTOMATION_MCP_INPUT_ROOT` and `WEB_AUTOMATION_MCP_OUTPUT_ROOT` as advanced overrides
-- [ ] Add workspace/root precedence and compatibility tests
-- [ ] Update local Codex registration/testing examples for zero-config workspace-relative paths
+- [x] Add stable workspace-root resolver at runtime startup
+- [x] Default input root to workspace root
+- [x] Default output root to `<workspace>/mcp-output`
+- [x] Preserve `WEB_AUTOMATION_MCP_INPUT_ROOT` and `WEB_AUTOMATION_MCP_OUTPUT_ROOT` as advanced overrides
+- [x] Add workspace/root precedence and compatibility tests
+- [x] Update local Codex registration/testing examples for zero-config workspace-relative paths
 
 ### Real validation
 
