@@ -58,6 +58,22 @@ describe('requireAuthenticatedChatGptSession', () => {
 
     expect(clock).toBe(500);
   });
+
+  it('classifies a rate-limited full page instead of reporting generic provider unavailable', async () => {
+    const page = new RateLimitedPage();
+    let clock = 0;
+
+    await expect(
+      requireAuthenticatedChatGptSession(page, {
+        timeoutMs: 100,
+        pollIntervalMs: 100,
+        now: () => clock,
+        sleep: async (delayMs) => {
+          clock += delayMs;
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_RATE_LIMITED' });
+  });
 });
 
 class UnknownThenAuthenticatedPage implements BrowserPagePort {
@@ -128,5 +144,13 @@ class UnknownPage implements BrowserPagePort {
   public async press(): Promise<void> {}
   public async textContents(): Promise<readonly string[]> {
     return [];
+  }
+}
+
+class RateLimitedPage extends UnknownPage {
+  public override async textContents(locator: LocatorCandidate): Promise<readonly string[]> {
+    return locator.kind === 'css' && locator.value === 'body'
+      ? ['Too many requests. Please try again later.']
+      : [];
   }
 }
