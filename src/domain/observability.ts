@@ -8,7 +8,8 @@ export type AutomationOperation =
   | 'ask_to_file'
   | 'session_status'
   | 'new_chat'
-  | 'get_last_response';
+  | 'get_last_response'
+  | 'list_conversations';
 
 export type LifecyclePhase = 'START' | 'SUCCESS' | 'FAILURE';
 export type ObservabilityErrorCode = ExecutionErrorCode | 'INTERNAL_ERROR';
