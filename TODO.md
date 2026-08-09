@@ -127,7 +127,7 @@
 - [x] Add deterministic transcript renderer
 - [x] Add `ExportConversationUseCase` using `AnswerFilePort`
 - [x] Add `web_export_conversation_to_file`
-- [ ] Add architecture/redaction/pagination/virtualization unit tests
+- [x] Add architecture/redaction/pagination/virtualization unit tests
 - [x] Add the three tools to MCP Inspector smoke coverage
 - [ ] Validate list -> read -> continue -> read/export on a real authenticated profile
 - [ ] Validate conversation operations through shared-CDP mode when available
