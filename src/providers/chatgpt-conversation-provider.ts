@@ -3,21 +3,39 @@ import {
   lastAssistantResponse,
 } from '../adapters/chatgpt/assistant-responses.js';
 import { requireAuthenticatedChatGptSession } from '../adapters/chatgpt/authentication.js';
+import { ChatGptConversationCatalog } from '../adapters/chatgpt/conversation-catalog.js';
 import { ChatGptConversationNavigator } from '../adapters/chatgpt/conversation-navigator.js';
+import type { ProfileId } from '../domain/conversation.js';
 import { WebAutomationError } from '../domain/errors.js';
 import type { BrowserSessionPort } from '../ports/browser-session-port.js';
+import type {
+  ConversationCatalogInput,
+  ConversationCatalogPort,
+} from '../ports/conversation-catalog-port.js';
 import type {
   ProviderConversationPort,
   ProviderLastResponseInput,
   ProviderLastResponseOutput,
   ProviderNewChatOutput,
 } from '../ports/provider-conversation-port.js';
-import type { ProfileId } from '../domain/conversation.js';
 
-export class ChatGptConversationProvider implements ProviderConversationPort {
+export class ChatGptConversationProvider
+  implements ProviderConversationPort, ConversationCatalogPort
+{
   public readonly id = 'chatgpt' as const;
 
   public constructor(private readonly sessions: BrowserSessionPort) {}
+
+  public async list(input: ConversationCatalogInput) {
+    const session = await this.sessions.acquire(this.id, input.profileId);
+    try {
+      await new ChatGptConversationNavigator(session.page).open();
+      await requireAuthenticatedChatGptSession(session.page);
+      return await new ChatGptConversationCatalog(session.page).list(input);
+    } finally {
+      await session.close();
+    }
+  }
 
   public async newChat(profileId: ProfileId): Promise<ProviderNewChatOutput> {
     const session = await this.sessions.acquire(this.id, profileId);
