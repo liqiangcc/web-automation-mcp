@@ -115,6 +115,12 @@ class FakeCleanupApplication
   }
 }
 
+class RateLimitedCleanupApplication extends FakeCleanupApplication {
+  public override async listConversations(): Promise<never> {
+    throw new WebAutomationError('PROVIDER_RATE_LIMITED', 'rate limited');
+  }
+}
+
 describe('conversation cleanup acceptance', () => {
   it('deletes only the target, proves the survivor remains, then cleans the survivor', async () => {
     let clock = 0;
@@ -124,6 +130,7 @@ describe('conversation cleanup acceptance', () => {
     });
 
     expect(report.status).toBe('PASS');
+    expect(report.conclusive).toBe(true);
     expect(report.preflight).toEqual({ targetPresent: true, survivorPresent: true });
     expect(report.targetDelete).toEqual({
       attempted: true,
@@ -139,5 +146,22 @@ describe('conversation cleanup acceptance', () => {
       absentAfterCleanup: true,
     });
     expect(report.createdConversationIds).toEqual(['target-id', 'survivor-id']);
+  });
+
+  it('is inconclusive before destructive actions when provider discovery is rate limited', async () => {
+    let clock = 0;
+    const report = await runConversationCleanupAcceptance(new RateLimitedCleanupApplication(), {
+      profileId: 'default',
+      now: () => (clock += 100),
+    });
+
+    expect(report.status).toBe('INCONCLUSIVE');
+    expect(report.passed).toBe(false);
+    expect(report.conclusive).toBe(false);
+    expect(report.reason).toBe('provider_rate_limited');
+    expect(report.errorCode).toBe('PROVIDER_RATE_LIMITED');
+    expect(report.createdConversationIds).toEqual(['target-id', 'survivor-id']);
+    expect(report.targetDelete.attempted).toBe(false);
+    expect(report.survivor.cleanupAttempted).toBe(false);
   });
 });
