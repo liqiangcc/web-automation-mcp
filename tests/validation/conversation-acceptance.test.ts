@@ -6,6 +6,7 @@ import type {
   AskToFileRequest,
   AskToFileResult,
 } from '../../src/domain/conversation.js';
+import { WebAutomationError } from '../../src/domain/errors.js';
 import type {
   AutomationApplicationPort,
   LastResponseRequest,
@@ -143,6 +144,16 @@ class FakeConversationApplication
   }
 }
 
+class RateLimitedConversationApplication extends FakeConversationApplication {
+  public constructor() {
+    super([]);
+  }
+
+  public override async listConversations(): Promise<ListConversationsResult> {
+    throw new WebAutomationError('PROVIDER_RATE_LIMITED', 'rate limited');
+  }
+}
+
 describe('conversation acceptance', () => {
   it('passes when pagination, full reading, continuation, export and reopen all agree', async () => {
     let clock = 0;
@@ -213,6 +224,24 @@ describe('conversation acceptance', () => {
     expect(report.reading.continuedMarkerPresent).toBe(true);
     expect(report.export.attempted).toBe(true);
     expect(report.continuation.reopenedLastResponseMarkerPresent).toBe(true);
+  });
+
+  it('is inconclusive when the provider rate limits discovery after creating the seed', async () => {
+    let clock = 0;
+    const report = await runConversationAcceptance(new RateLimitedConversationApplication(), {
+      profileId: 'default',
+      now: () => (clock += 100),
+    });
+
+    expect(report.status).toBe('INCONCLUSIVE');
+    expect(report.passed).toBe(false);
+    expect(report.conclusive).toBe(false);
+    expect(report.reason).toBe('provider_rate_limited');
+    expect(report.errorCode).toBe('PROVIDER_RATE_LIMITED');
+    expect(report.createdConversationIds).toEqual(['seed-conversation']);
+    expect(report.reading.initialAttempted).toBe(false);
+    expect(report.continuation.attempted).toBe(false);
+    expect(report.export.attempted).toBe(false);
   });
 
   it('fails before reading when pagination returns duplicate conversation ids', async () => {
