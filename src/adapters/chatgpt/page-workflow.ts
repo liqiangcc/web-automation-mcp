@@ -10,10 +10,16 @@ import {
 } from './authentication.js';
 import {
   ChatGptCompletionDetector,
-  ChatGptGenerationProbe,
+  createFallbackWakeupSource,
   type CompletionDetectorDependencies,
   type CompletionDetectorOptions,
+  type CompletionWakeupSource,
 } from './completion-detector.js';
+import {
+  ChatGptCompletionSnapshotSource,
+  ChatGptComposerProbe,
+  ChatGptGenerationProbe,
+} from './completion-snapshot.js';
 import { ChatGptPromptSubmitter } from './prompt-submit.js';
 import { ChatGptPlainTextResponseExtractor } from './response-extractor.js';
 
@@ -22,6 +28,8 @@ export interface ChatGptPageWorkflowOptions {
   readonly completion?: CompletionDetectorOptions;
   readonly completionDependencies?: CompletionDetectorDependencies;
 }
+
+const DEFAULT_DOM_CHANGE_DEBOUNCE_MS = 75;
 
 export class ChatGptPageWorkflow {
   public constructor(
@@ -47,14 +55,45 @@ export class ChatGptPageWorkflow {
     const baseline = await new AssistantResponseBaselineTracker(responses).capture();
     await new ChatGptPromptSubmitter(this.page).submit(prompt);
 
-    const completion = new ChatGptCompletionDetector(
+    const dependencies = this.options.completionDependencies ?? defaultCompletionDependencies();
+    const snapshots = new ChatGptCompletionSnapshotSource(
       responses,
+      baseline,
       new ChatGptGenerationProbe(this.page),
-      this.options.completion,
-      this.options.completionDependencies,
+      new ChatGptComposerProbe(this.page),
     );
-    const completed = await completion.waitForCompletion(baseline);
+    const completion = new ChatGptCompletionDetector(
+      snapshots,
+      this.createWakeupSource(dependencies),
+      this.options.completion,
+      dependencies,
+    );
+    const completed = await completion.waitForCompletion();
 
     return new ChatGptPlainTextResponseExtractor().extract(completed.responses, baseline);
   }
+
+  private createWakeupSource(
+    dependencies: CompletionDetectorDependencies,
+  ): CompletionWakeupSource {
+    const waitForDomChange = this.page.waitForDomChange;
+    if (waitForDomChange === undefined) {
+      return createFallbackWakeupSource(dependencies);
+    }
+
+    return {
+      waitForChange: (timeoutMs) =>
+        waitForDomChange.call(this.page, {
+          timeoutMs,
+          debounceMs: DEFAULT_DOM_CHANGE_DEBOUNCE_MS,
+        }),
+    };
+  }
+}
+
+function defaultCompletionDependencies(): CompletionDetectorDependencies {
+  return {
+    now: Date.now,
+    sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+  };
 }
