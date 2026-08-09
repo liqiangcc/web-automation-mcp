@@ -15,14 +15,32 @@ interface CliOptions {
   readonly reportPath: string;
   readonly delayMs: number;
   readonly skipAttachments: boolean;
+  readonly workspaceOnly: boolean;
   readonly binaryFile?: string;
 }
 
 async function main(): Promise<void> {
   const options = parseArguments(process.argv.slice(2));
   const workspace = resolveWorkspacePaths(process.cwd(), process.env);
-  const application = createDefaultAutomationApplication();
+  const workspaceFingerprint = createHash('sha256').update(workspace.workspaceRoot).digest('hex');
 
+  if (options.workspaceOnly) {
+    console.log(
+      JSON.stringify(
+        {
+          workspaceFingerprint,
+          workspaceConfigured: Boolean(process.env.WEB_AUTOMATION_MCP_WORKSPACE?.trim()),
+          inputRootOverridden: Boolean(process.env.WEB_AUTOMATION_MCP_INPUT_ROOT?.trim()),
+          outputRootOverridden: Boolean(process.env.WEB_AUTOMATION_MCP_OUTPUT_ROOT?.trim()),
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+
+  const application = createDefaultAutomationApplication();
   const reliability = await runLiveValidation(application, {
     profileId: options.profileId,
     delayMs: options.delayMs,
@@ -42,7 +60,7 @@ async function main(): Promise<void> {
       process.env.WEB_AUTOMATION_MCP_CDP_URL === undefined
         ? ('persistent_profile' as const)
         : ('shared_cdp' as const),
-    workspaceFingerprint: createHash('sha256').update(workspace.workspaceRoot).digest('hex'),
+    workspaceFingerprint,
     workspaceConfigured: Boolean(process.env.WEB_AUTOMATION_MCP_WORKSPACE?.trim()),
     inputRootOverridden: Boolean(process.env.WEB_AUTOMATION_MCP_INPUT_ROOT?.trim()),
     outputRootOverridden: Boolean(process.env.WEB_AUTOMATION_MCP_OUTPUT_ROOT?.trim()),
@@ -111,6 +129,7 @@ function parseArguments(args: readonly string[]): CliOptions {
   let reportPath = defaultReportPath();
   let delayMs = 1_000;
   let skipAttachments = false;
+  let workspaceOnly = false;
   let binaryFile: string | undefined;
 
   for (let index = 0; index < args.length; index += 1) {
@@ -133,6 +152,9 @@ function parseArguments(args: readonly string[]): CliOptions {
       case '--skip-attachments':
         skipAttachments = true;
         break;
+      case '--workspace-only':
+        workspaceOnly = true;
+        break;
       case '--binary-file':
         binaryFile = requireValue(args, ++index, '--binary-file');
         break;
@@ -149,6 +171,7 @@ function parseArguments(args: readonly string[]): CliOptions {
     reportPath,
     delayMs,
     skipAttachments,
+    workspaceOnly,
     ...(binaryFile === undefined ? {} : { binaryFile }),
   };
 }
@@ -166,7 +189,7 @@ function defaultReportPath(): string {
 }
 
 function printHelp(): void {
-  console.log(`Usage: npm run validate:live -- [options]\n\nOptions:\n  --profile <id>          Browser profile id (default: default)\n  --report <relative>     Report path under the effective output root\n  --delay-ms <ms>         Delay between the 30 reliability requests (default: 1000)\n  --skip-attachments      Run only the 30-request reliability matrix\n  --binary-file <path>    Add one workspace-relative PDF/image attachment check\n  --help                  Show this help\n`);
+  console.log(`Usage: npm run validate:live -- [options]\n\nOptions:\n  --profile <id>          Browser profile id (default: default)\n  --report <relative>     Report path under the effective output root\n  --delay-ms <ms>         Delay between the 30 reliability requests (default: 1000)\n  --skip-attachments      Run only the 30-request reliability matrix\n  --workspace-only        Print the workspace fingerprint without opening a browser\n  --binary-file <path>    Add one workspace-relative PDF/image attachment check\n  --help                  Show this help\n`);
 }
 
 main().catch((error: unknown) => {
