@@ -111,7 +111,9 @@ describe('security and redaction', () => {
     const filePath = join(diagnosticsDir, files[0] as string);
     const content = await readFile(filePath, 'utf8');
     expect(JSON.parse(content)).toEqual(bundle);
-    expect(content).not.toMatch(/prompt|responseText|conversationId|cookie|token|stack/i);
+    expect(content).not.toMatch(/prompt|responseText|cookie|token|stack/i);
+    expect(content).not.toMatch(/"conversationId"\s*:/i);
+    expect(content).toContain('"hasConversationId": true');
 
     if (process.platform !== 'win32') {
       const fileStat = await stat(filePath);
