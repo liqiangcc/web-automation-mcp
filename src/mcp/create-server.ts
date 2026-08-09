@@ -3,11 +3,13 @@ import { z } from 'zod';
 
 import type { AttachmentApplicationPort } from '../ports/attachment-application-port.js';
 import type { AutomationApplicationPort } from '../ports/automation-application-port.js';
+import type { ConversationCatalogApplicationPort } from '../ports/conversation-catalog-port.js';
 import {
   handleWebAsk,
   handleWebAskToFile,
   handleWebAskWithFiles,
   handleWebGetLastResponse,
+  handleWebListConversations,
   handleWebNewChat,
   handleWebSessionStatus,
 } from './tool-handlers.js';
@@ -21,7 +23,9 @@ const ProfileIdSchema = z
 const ConversationIdSchema = z.string().min(1).describe('Provider conversation id.');
 
 export function createMcpServer(
-  application: AutomationApplicationPort & Partial<AttachmentApplicationPort>,
+  application: AutomationApplicationPort &
+    Partial<AttachmentApplicationPort> &
+    Partial<ConversationCatalogApplicationPort>,
 ): McpServer {
   const server = new McpServer({
     name: 'web-automation-mcp',
@@ -48,6 +52,45 @@ export function createMcpServer(
         {
           provider: provider ?? 'chatgpt',
           profileId,
+        },
+        application,
+      ),
+  );
+
+  server.registerTool(
+    'web_list_conversations',
+    {
+      title: 'List web AI conversations',
+      description:
+        'List recent provider conversations as lightweight conversation ids and titles. Use nextCursor for bounded pagination; message bodies are never returned by this tool.',
+      inputSchema: z.object({
+        provider: ProviderSchema.describe('Web provider. ChatGPT is the only provider in v0.1.'),
+        profileId: ProfileIdSchema,
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .describe('Maximum conversations to return. Defaults to 20; maximum 50.'),
+        cursor: z
+          .string()
+          .min(1)
+          .optional()
+          .describe('Opaque cursor returned by a previous web_list_conversations call.'),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+      },
+    },
+    async ({ provider, profileId, limit, cursor }) =>
+      handleWebListConversations(
+        {
+          provider: provider ?? 'chatgpt',
+          profileId,
+          ...(limit === undefined ? {} : { limit }),
+          ...(cursor === undefined ? {} : { cursor }),
         },
         application,
       ),
