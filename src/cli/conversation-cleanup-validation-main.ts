@@ -29,6 +29,7 @@ async function main(): Promise<void> {
       {
         status: report.status,
         passed: report.passed,
+        conclusive: report.conclusive,
         preflight: report.preflight,
         targetDelete: report.targetDelete,
         survivor: report.survivor,
@@ -42,7 +43,7 @@ async function main(): Promise<void> {
     ),
   );
 
-  process.exitCode = report.passed ? 0 : 1;
+  process.exitCode = report.passed ? 0 : report.conclusive ? 1 : 2;
 }
 
 function parseArguments(args: readonly string[]): CliOptions {
@@ -101,7 +102,7 @@ function defaultReportPath(): string {
 }
 
 function printHelp(): void {
-  console.log(`Usage: npm run validate:cleanup -- [options]\n\nOptions:\n  --profile <id>       Browser profile id (default: default)\n  --report <relative>  Report path under the effective output root\n  --page-size <count>  Recent conversations per page (default: 20, maximum: 50)\n  --max-pages <count>  Maximum recent pages to inspect (default: 3)\n  --help               Show this help\n\nSafety flow:\n  create two disposable conversations\n  -> prove both explicit IDs are discoverable\n  -> delete only the target ID\n  -> prove target disappeared and survivor remains readable\n  -> prove repeated target deletion returns CONVERSATION_NOT_FOUND\n  -> delete the disposable survivor and confirm cleanup\n\nThis command never selects or deletes pre-existing conversations.\n`);
+  console.log(`Usage: npm run validate:cleanup -- [options]\n\nOptions:\n  --profile <id>       Browser profile id (default: default)\n  --report <relative>  Report path under the effective output root\n  --page-size <count>  Recent conversations per page (default: 20, maximum: 50)\n  --max-pages <count>  Maximum recent pages to inspect (default: 3)\n  --help               Show this help\n\nSafety flow:\n  create two disposable conversations\n  -> prove both explicit IDs are discoverable\n  -> delete only the target ID\n  -> prove target disappeared and survivor remains readable\n  -> prove repeated target deletion returns CONVERSATION_NOT_FOUND\n  -> delete the disposable survivor and confirm cleanup\n\nExit codes:\n  0  Acceptance passed\n  1  Acceptance conclusively failed\n  2  Acceptance was inconclusive (for example, the provider rate limited validation before destructive assertions)\n\nThis command never selects or deletes pre-existing conversations.\n`);
 }
 
 main().catch((error: unknown) => {
