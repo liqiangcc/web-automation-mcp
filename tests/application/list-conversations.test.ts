@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { ListConversationsUseCase } from '../../src/application/list-conversations.js';
-import { WebAutomationError } from '../../src/domain/errors.js';
 import type {
   ConversationCatalogInput,
   ConversationCatalogPort,
@@ -42,6 +41,6 @@ describe('ListConversationsUseCase', () => {
 
     await expect(
       useCase.listConversations({ provider: 'chatgpt', profileId: 'default', limit: 51 }),
-    ).rejects.toMatchObject<WebAutomationError>({ code: 'INVALID_REQUEST' });
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
   });
 });
