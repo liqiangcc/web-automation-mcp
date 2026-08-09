@@ -4,10 +4,12 @@ import { z } from 'zod';
 import type { AttachmentApplicationPort } from '../ports/attachment-application-port.js';
 import type { AutomationApplicationPort } from '../ports/automation-application-port.js';
 import type { ConversationCatalogApplicationPort } from '../ports/conversation-catalog-port.js';
+import type { ConversationReaderApplicationPort } from '../ports/conversation-reader-port.js';
 import {
   handleWebAsk,
   handleWebAskToFile,
   handleWebAskWithFiles,
+  handleWebGetConversation,
   handleWebGetLastResponse,
   handleWebListConversations,
   handleWebNewChat,
@@ -25,7 +27,8 @@ const ConversationIdSchema = z.string().min(1).describe('Provider conversation i
 export function createMcpServer(
   application: AutomationApplicationPort &
     Partial<AttachmentApplicationPort> &
-    Partial<ConversationCatalogApplicationPort>,
+    Partial<ConversationCatalogApplicationPort> &
+    Partial<ConversationReaderApplicationPort>,
 ): McpServer {
   const server = new McpServer({
     name: 'web-automation-mcp',
@@ -91,6 +94,33 @@ export function createMcpServer(
           profileId,
           ...(limit === undefined ? {} : { limit }),
           ...(cursor === undefined ? {} : { cursor }),
+        },
+        application,
+      ),
+  );
+
+  server.registerTool(
+    'web_get_conversation',
+    {
+      title: 'Get web AI conversation',
+      description:
+        'Open one explicit provider conversation and return its ordered semantic user/assistant message transcript without submitting a prompt.',
+      inputSchema: z.object({
+        provider: ProviderSchema.describe('Web provider. ChatGPT is the only provider in v0.1.'),
+        profileId: ProfileIdSchema,
+        conversationId: ConversationIdSchema,
+      }),
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+      },
+    },
+    async ({ provider, profileId, conversationId }) =>
+      handleWebGetConversation(
+        {
+          provider: provider ?? 'chatgpt',
+          profileId,
+          conversationId,
         },
         application,
       ),
