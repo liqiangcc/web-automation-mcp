@@ -27,7 +27,7 @@ describe('conversation architecture boundaries', () => {
         '../../src/mcp/create-server.ts',
         '../../src/mcp/tool-handlers.ts',
         '../../src/mcp/conversation-export-tool-handler.ts',
-        '../../src/mcp/conversation-mutation-tool-handler.ts',
+        '../../src/mcp/conversation-delete-tool-handler.ts',
       ].map((path) => readFile(new URL(path, import.meta.url), 'utf8')),
     );
 
