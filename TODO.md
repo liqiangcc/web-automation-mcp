@@ -116,9 +116,9 @@
 - [x] Define export as `ConversationReaderPort` + transcript renderer + existing `AnswerFilePort`
 - [ ] Add provider-neutral conversation summary/page/message/transcript domain types
 - [ ] Add conversation catalog/reader ports without leaking ChatGPT DOM semantics
-- [ ] Implement ChatGPT conversation catalog with bounded virtual-scroll discovery and opaque cursor
-- [ ] Add `ListConversationsUseCase`
-- [ ] Add `web_list_conversations`
+- [x] Implement ChatGPT conversation catalog with bounded virtual-scroll discovery and opaque cursor
+- [x] Add `ListConversationsUseCase`
+- [x] Add `web_list_conversations`
 - [ ] Implement ChatGPT conversation reader with explicit `conversationId` and completeness handling
 - [ ] Add `GetConversationUseCase`
 - [ ] Add `web_get_conversation`
