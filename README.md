@@ -39,6 +39,7 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 - Return text plus execution metadata
 - Discover recent conversations with bounded opaque-cursor pagination
 - Read one explicit conversation as an ordered semantic transcript
+- Export a complete conversation to a restricted workspace file without returning the full transcript
 - Save a completed response directly to a restricted local file without returning the full text
 - Detect authentication loss and provider-UI mismatch
 - Diagnostic artifacts on failure
@@ -63,13 +64,14 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 - `web_session_status(profileId)`
 - `web_list_conversations(profileId, limit?, cursor?)`
 - `web_get_conversation(profileId, conversationId)`
+- `web_export_conversation_to_file(profileId, conversationId, outputPath, overwrite?)`
 - `web_new_chat(profileId)`
 - `web_ask(profileId, prompt, conversationId?)`
 - `web_ask_with_files(profileId, prompt, files[], conversationId?)`
 - `web_ask_to_file(profileId, prompt, outputPath, conversationId?, overwrite?)`
 - `web_get_last_response(profileId, conversationId)`
 
-`web_list_conversations` returns lightweight conversation IDs/titles only. `web_get_conversation` returns ordered semantic message bodies for one explicit ID and refuses to silently truncate transcripts that exceed its deterministic response-size guard.
+`web_list_conversations` returns lightweight conversation IDs/titles only. `web_get_conversation` returns ordered semantic message bodies for one explicit ID and refuses to silently truncate transcripts that exceed its deterministic response-size guard. `web_export_conversation_to_file` reuses the same complete conversation reader but bypasses the MCP transcript-size guard, renders deterministic Markdown, writes through the restricted output-file boundary, and returns file metadata only.
 
 ## Workspace-relative paths
 
@@ -105,7 +107,7 @@ The workspace root is stable for the MCP process lifetime. If the agent changes 
 
 `web_ask_with_files` accepts relative paths beneath the effective input root and never returns canonical input paths.
 
-`web_ask_to_file` accepts a relative `outputPath`. By default it writes beneath `<workspace>/mcp-output`, refuses existing files unless overwrite is explicitly enabled, and returns file metadata rather than the full response text.
+`web_ask_to_file` and `web_export_conversation_to_file` accept relative `outputPath` values. By default they write beneath `<workspace>/mcp-output`, refuse existing files unless overwrite is explicitly enabled, and return file metadata rather than the full response/transcript text.
 
 ## Response completion direction
 
@@ -131,9 +133,10 @@ web_list_conversations
   -> web_get_conversation(conversationId)
   -> web_ask(conversationId, prompt)
   -> web_get_conversation(conversationId)
+  -> optional web_export_conversation_to_file(conversationId, outputPath)
 ```
 
-The ChatGPT adapter owns sidebar/message semantics. Playwright exposes only generic DOM snapshot, scroll and DOM-change mechanics. Application/MCP never depend on ChatGPT selectors or mutable active-tab state.
+The ChatGPT adapter owns sidebar/message semantics. Playwright exposes only generic DOM snapshot, scroll and DOM-change mechanics. Application/MCP never depend on ChatGPT selectors or mutable active-tab state. Export rendering and filesystem persistence remain outside the ChatGPT adapter.
 
 Run the executable real-session acceptance flow from an authenticated local profile:
 
