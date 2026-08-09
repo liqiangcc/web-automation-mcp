@@ -100,11 +100,55 @@
 - [x] Keep MCP file arguments relative and forbid request-controlled workspace roots
 - [x] Add stable workspace-root resolver at runtime startup
 - [x] Default input root to workspace root
-- [x] Default output root to `<workspace>/mcp-output`
+- [x] Default output root to `<workspaceRoot>/mcp-output`
 - [x] Preserve `WEB_AUTOMATION_MCP_INPUT_ROOT` and `WEB_AUTOMATION_MCP_OUTPUT_ROOT` as advanced overrides
 - [x] Add workspace/root precedence and compatibility tests
 - [x] Update local Codex registration/testing examples for zero-config workspace-relative paths
 - [x] Add browser-free workspace fingerprint verification mode
+
+## Phase 5.6 - Conversation discovery, reading and export
+
+- [x] Document conversation discovery/read/continuation/export architecture and SoC boundaries (`docs/CONVERSATIONS.md`)
+- [x] Keep continuation based on explicit `conversationId`; reject active-conversation/global-browser-state design
+- [x] Separate lightweight conversation listing from full transcript reading
+- [x] Define virtualized/lazy conversation history as ChatGPT adapter semantics over generic browser scroll/DOM-change mechanics
+- [x] Define raw DOM mutation as wake-up only, not semantic pagination progress
+- [x] Define export as `ConversationReaderPort` + transcript renderer + existing `AnswerFilePort`
+- [ ] Add provider-neutral conversation summary/page/message/transcript domain types
+- [ ] Add conversation catalog/reader ports without leaking ChatGPT DOM semantics
+- [ ] Implement ChatGPT conversation catalog with bounded virtual-scroll discovery and opaque cursor
+- [ ] Add `ListConversationsUseCase`
+- [ ] Add `web_list_conversations`
+- [ ] Implement ChatGPT conversation reader with explicit `conversationId` and completeness handling
+- [ ] Add `GetConversationUseCase`
+- [ ] Add `web_get_conversation`
+- [ ] Add deterministic transcript renderer
+- [ ] Add `ExportConversationUseCase` using `AnswerFilePort`
+- [ ] Add `web_export_conversation_to_file`
+- [ ] Add architecture/redaction/pagination/virtualization unit tests
+- [ ] Add the three tools to MCP Inspector smoke coverage
+- [ ] Validate list -> read -> continue -> read/export on a real authenticated profile
+- [ ] Validate conversation operations through shared-CDP mode when available
+
+## Phase 5.7 - Conversation cleanup
+
+- [x] Document destructive cleanup architecture and safety boundaries (`docs/CONVERSATION_CLEANUP.md`)
+- [x] Separate cleanup/mutation from conversation discovery and reading
+- [x] Require explicit `conversationId` targets; forbid deletion based on implicit active browser state
+- [x] Define single-ID deletion before bounded batch deletion
+- [x] Define batch deletion as sequential application-level composition over one semantic mutation port
+- [x] Defer delete-all/date/title/rule-based cleanup until a separate preview/selection model exists
+- [x] Require positive target identity and delete-success verification
+- [ ] Add `ConversationMutationPort` and typed deletion errors
+- [ ] Implement exact ChatGPT single-conversation deletion with positive target verification
+- [ ] Add `DeleteConversationUseCase`
+- [ ] Add destructive `web_delete_conversation` MCP tool
+- [ ] Add duplicate-title/reordered-row/virtualized-list safety fixtures
+- [ ] Validate exact deletion using disposable real conversations and prove unrelated conversations survive
+- [ ] Add bounded `web_delete_conversations` only after single deletion proves stable
+- [ ] Add per-ID batch results and global-failure stop policy
+- [ ] Add batch deletion to MCP Inspector smoke coverage
+- [ ] Validate bounded batch deletion using disposable real conversations
 
 ### Real validation
 
@@ -119,5 +163,7 @@
 - [ ] Candidate validation + promotion policy
 - [ ] Provider behavior versioning
 - [ ] Additional providers
+- [ ] `web_search_conversations` / provider-wide conversation search after list/read proves stable
+- [ ] Rule-based conversation cleanup with explicit preview/selection and separate destructive execution
 - [ ] Semantic workflow DSL
 - [ ] Workflow recording/exploration
