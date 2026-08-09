@@ -318,7 +318,7 @@ export async function runConversationAcceptance(
         pageSize,
         maxPages,
         pages,
-        seedConversationId,
+        ...(seedConversationId === undefined ? {} : { seedConversationId }),
         seedFound,
         duplicateCount,
         paginationExercised,
