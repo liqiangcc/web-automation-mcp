@@ -55,6 +55,9 @@ class FakeChatPage implements BrowserPagePort {
     if (locator.kind === 'testId' && locator.value === 'send-button') {
       return this.authenticated;
     }
+    if (locator.kind === 'css' && locator.value.includes('assistant')) {
+      return true;
+    }
     return false;
   }
 
