@@ -20,6 +20,7 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 6. **Credentials are never exposed through MCP.**
 7. **A browser profile is treated as a secret-bearing local asset.**
 8. **Local paths are workspace-relative at the MCP boundary.**
+9. **Response completion should be event-driven by browser change notifications, while completion meaning remains provider-semantic.**
 
 ## V0.1 scope
 
@@ -51,6 +52,7 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 - Self-modifying selectors without validation
 - Arbitrary absolute-path host filesystem access
 - Per-request workspace switching
+- Reverse engineering ChatGPT private streaming/network protocols
 
 ## Proposed MCP surface
 
@@ -97,6 +99,20 @@ The workspace root is stable for the MCP process lifetime. If the agent changes 
 
 `web_ask_to_file` accepts a relative `outputPath`. By default it writes beneath `<workspace>/mcp-output`, refuses existing files unless overwrite is explicitly enabled, and returns file metadata rather than the full response text.
 
+## Response completion direction
+
+The reliability target is event-driven completion rather than a fixed high-frequency polling loop:
+
+```text
+Browser: page changed
+    -> ChatGPT adapter: read semantic response/generation/composer state
+    -> CompletionDetector: apply completion and timeout policy
+```
+
+Raw DOM mutations only wake the detector; they do not count as generation progress by themselves. Provider selectors remain inside the ChatGPT adapter, while `MutationObserver`/event transport remains a browser-adapter concern.
+
+See `docs/RESPONSE_COMPLETION.md` for the design and implementation acceptance criteria.
+
 ## Local authentication and persistence checks
 
 Initial login is a local maintenance operation rather than an MCP runtime action. Credentials stay inside the dedicated browser profile.
@@ -123,6 +139,7 @@ The profile is stored under `~/.web-automation-mcp` by default and is protected 
 
 - `docs/REQUIREMENTS.md` - product and reliability requirements
 - `docs/ARCHITECTURE.md` - boundaries and dependency rules
+- `docs/RESPONSE_COMPLETION.md` - event-driven response-completion design, state machine and timeout semantics
 - `docs/WORKSPACE_PATHS.md` - Codex workspace-relative path contract and root precedence
 - `docs/FILE_INPUT_AND_UPLOAD.md` - restricted local input and provider attachment design
 - `docs/FEASIBILITY.md` - feasibility evidence, risks and go/no-go criteria

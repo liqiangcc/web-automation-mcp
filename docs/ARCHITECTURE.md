@@ -21,12 +21,12 @@ ProviderPort         ProfileManager
     |                    v
 ChatGPTProvider      BrowserProfile + ProfileLock
     |
-    +-------------------------------+
-    |               |               |
-    v               v               v
-TargetResolver  CompletionDetector  ResponseExtractor
-    |               |               |
-    +---------------+---------------+
+    +---------------------------------------------+
+    |               |               |             |
+    v               v               v             v
+TargetResolver  CompletionDetector  ResponseExtractor  Provider Probes
+    |               |               |             |
+    +---------------+---------------+-------------+
                     |
                     v
                 BrowserPort
@@ -47,7 +47,7 @@ Must not contain Playwright selectors or provider-specific DOM logic.
 
 Implements use cases such as `Ask`, `NewChat` and `SessionStatus`.
 
-Knows semantic provider operations, not browser selectors.
+Knows semantic provider operations, not browser selectors or completion mechanics.
 
 ### `domain/`
 
@@ -63,13 +63,13 @@ No dependency on MCP, Playwright or ChatGPT.
 
 ### `ports/`
 
-Defines interfaces consumed by application/domain logic:
+Defines interfaces consumed by application/provider/session logic:
 
 - `ProviderPort`
 - `BrowserPort`
 - `ProfileStore`
 - `DiagnosticsSink`
-- `Clock`
+- clock/change abstractions when needed for deterministic completion tests
 
 ### `session/`
 
@@ -81,7 +81,7 @@ Owns browser identity lifecycle:
 - headed/manual login bootstrap
 - session probing coordination
 
-It does not send prompts.
+It does not send prompts or decide response completion.
 
 ### `adapters/chatgpt/`
 
@@ -91,23 +91,35 @@ Owns ChatGPT Web semantics:
 - how to open a new conversation
 - how to resolve semantic targets
 - how to submit a prompt
-- how to recognize generation progress/completion
+- how to map the current page into response/generation/composer semantic state
 - how to extract the assistant response
 
 This is the main change boundary when ChatGPT UI changes.
+
+The ChatGPT adapter may expose semantic completion snapshots, but it does not own browser event transport or timer policy.
 
 ### `adapters/playwright/`
 
 Owns browser mechanics:
 
-- launch persistent context
+- launch/connect browser context
 - page lifecycle
-- fill/click/press
+- fill/click/press/file input
 - locator execution
+- generic DOM-change notification
+- page-side observer cleanup/debounce
 - snapshots/screenshots
-- timeouts
+- browser-level timeouts
 
-It must not know what a ChatGPT prompt or assistant response is.
+It must not know what a ChatGPT prompt, assistant response, stop button or completed answer means.
+
+### Completion policy
+
+`CompletionDetector` owns completion state transitions and policy. It consumes provider-semantic snapshots plus generic browser-change/clock dependencies.
+
+It must not import Playwright or contain ChatGPT selectors.
+
+The detailed design is in `docs/RESPONSE_COMPLETION.md`.
 
 ### `recovery/` (V0.2+)
 
@@ -117,9 +129,11 @@ Owns fallback and repair orchestration. V0.1 should only collect diagnostics and
 
 ```text
 mcp -> application -> domain/ports
-chatgpt adapter -------> ports
-playwright adapter ----> ports
-session ---------------> ports
+provider/chatgpt -------> ports
+chatgpt semantic probes -> ports
+completion detector ----> semantic/change/clock abstractions
+playwright adapter -----> ports
+session ----------------> ports
 ```
 
 Forbidden dependencies:
@@ -130,6 +144,9 @@ mcp -> chatgpt DOM selectors
 domain -> MCP SDK
 chatgpt adapter -> MCP SDK
 playwright adapter -> ChatGPT concepts
+completion detector -> Playwright API
+completion detector -> ChatGPT selectors
+raw DOM mutation -> semantic completion decision
 ```
 
 ## 4. Suggested source layout
@@ -149,6 +166,7 @@ src/
   application/
     ask.ts
     ask-to-file.ts
+    ask-with-files.ts
     new-chat.ts
     session-status.ts
   session/
@@ -157,14 +175,15 @@ src/
     profile-path.ts
   adapters/
     chatgpt/
-      chatgpt-provider.ts
       session-probe.ts
       targets.ts
+      completion-snapshot.ts
       completion-detector.ts
       response-extractor.ts
     playwright/
       playwright-browser.ts
       locator-runner.ts
+      dom-change-source.ts
   mcp/
     create-server.ts
     tools/
@@ -178,6 +197,8 @@ src/
     diagnostics.ts
     logger.ts
 ```
+
+Names are illustrative. Preserve simple boundaries rather than creating an interface for every file.
 
 ## 5. Semantic target model
 
@@ -208,23 +229,58 @@ ACQUIRE_PROFILE
   -> CAPTURE_RESPONSE_BASELINE
   -> RESOLVE_PROMPT_INPUT
   -> SUBMIT_PROMPT
-  -> WAIT_FOR_NEW_ASSISTANT_RESPONSE
-  -> WAIT_FOR_COMPLETION
-  -> EXTRACT_RESPONSE
+  -> WAIT_FOR_RESPONSE_COMPLETION
+  -> EXTRACT/RETURN_RESPONSE
   -> RETURN
 ```
 
-Typed exits:
+`WAIT_FOR_RESPONSE_COMPLETION` is event-driven in the target V0.1 reliability design:
+
+```text
+generic DOM change / timer deadline
+        -> read ChatGPT semantic completion snapshot
+        -> update completion state
+        -> complete, continue, or typed timeout
+```
+
+A raw DOM mutation is only a wake-up. It is not proof of generation progress.
+
+Typed exits include:
 
 - `AUTH_REQUIRED`
 - `PROFILE_BUSY`
 - `NAVIGATION_FAILED`
 - `TARGET_NOT_FOUND`
+- `RESPONSE_START_TIMEOUT` (planned)
+- `GENERATION_STALLED` (planned)
 - `GENERATION_TIMEOUT`
 - `EXTRACTION_FAILED`
 - `PROVIDER_CHANGED`
 
-## 7. Change handling
+## 7. Event-driven completion boundary
+
+The completion path is intentionally split into three concerns:
+
+```text
+Playwright/browser
+  "the page changed"
+        |
+        v
+ChatGPT semantic probe
+  "response text/generation/composer state"
+        |
+        v
+CompletionDetector
+  "given those states and time, are we done?"
+```
+
+Browser event transport may use `MutationObserver` and debounce internally. ChatGPT selectors stay in `adapters/chatgpt`. Settle/start/idle/absolute timing policy stays in `CompletionDetector`.
+
+Only relevant semantic snapshot changes refresh the activity clock. Sidebar animations or unrelated DOM churn must not prevent a stalled-generation timeout.
+
+See `docs/RESPONSE_COMPLETION.md` for the complete state and timeout design.
+
+## 8. Change handling
 
 ### Level 0: normal
 
@@ -242,7 +298,7 @@ All deterministic candidates fail -> collect diagnostics -> `PROVIDER_CHANGED` i
 
 Workflow semantics changed (for example the provider introduces a new mandatory interaction) -> do not self-patch a selector. Mark provider behavior version incompatible and require workflow/provider adapter update.
 
-## 8. Authentication architecture
+## 9. Authentication architecture
 
 Use a dedicated Playwright persistent context:
 
@@ -268,6 +324,6 @@ CLI login
 
 Runtime never receives the user's password.
 
-## 9. Why login is a CLI concern first
+## 10. Why login is a CLI concern first
 
 Interactive sign-in can require MFA, external identity providers and anti-abuse challenges. Treating login as an explicit local maintenance operation keeps MCP calls deterministic and prevents authentication secrets from flowing through the model.
