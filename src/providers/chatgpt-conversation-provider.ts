@@ -4,6 +4,7 @@ import {
 } from '../adapters/chatgpt/assistant-responses.js';
 import { requireAuthenticatedChatGptSession } from '../adapters/chatgpt/authentication.js';
 import { ChatGptConversationCatalog } from '../adapters/chatgpt/conversation-catalog.js';
+import { ChatGptConversationMutation } from '../adapters/chatgpt/conversation-mutation.js';
 import { ChatGptConversationNavigator } from '../adapters/chatgpt/conversation-navigator.js';
 import { ChatGptConversationReader } from '../adapters/chatgpt/conversation-reader.js';
 import type { ProfileId } from '../domain/conversation.js';
@@ -13,6 +14,10 @@ import type {
   ConversationCatalogInput,
   ConversationCatalogPort,
 } from '../ports/conversation-catalog-port.js';
+import type {
+  ConversationMutationInput,
+  ConversationMutationPort,
+} from '../ports/conversation-mutation-port.js';
 import type {
   ConversationReaderInput,
   ConversationReaderPort,
@@ -25,7 +30,11 @@ import type {
 } from '../ports/provider-conversation-port.js';
 
 export class ChatGptConversationProvider
-  implements ProviderConversationPort, ConversationCatalogPort, ConversationReaderPort
+  implements
+    ProviderConversationPort,
+    ConversationCatalogPort,
+    ConversationReaderPort,
+    ConversationMutationPort
 {
   public readonly id = 'chatgpt' as const;
 
@@ -49,6 +58,16 @@ export class ChatGptConversationProvider
       await navigator.open(input.conversationId);
       await requireAuthenticatedChatGptSession(session.page);
       return await new ChatGptConversationReader(session.page).read(input.conversationId);
+    } finally {
+      await session.close();
+    }
+  }
+
+  public async delete(input: ConversationMutationInput): Promise<void> {
+    const session = await this.sessions.acquire(this.id, input.profileId);
+    try {
+      await requireAuthenticatedChatGptSession(session.page);
+      await new ChatGptConversationMutation(session.page).delete(input.conversationId);
     } finally {
       await session.close();
     }
