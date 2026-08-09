@@ -9,7 +9,8 @@ export type AutomationOperation =
   | 'session_status'
   | 'new_chat'
   | 'get_last_response'
-  | 'list_conversations';
+  | 'list_conversations'
+  | 'get_conversation';
 
 export type LifecyclePhase = 'START' | 'SUCCESS' | 'FAILURE';
 export type ObservabilityErrorCode = ExecutionErrorCode | 'INTERNAL_ERROR';
