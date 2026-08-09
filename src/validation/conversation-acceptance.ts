@@ -1,6 +1,7 @@
 import { WebAutomationError, type ExecutionErrorCode } from '../domain/errors.js';
 import type { AutomationApplicationPort } from '../ports/automation-application-port.js';
 import type { ConversationCatalogApplicationPort } from '../ports/conversation-catalog-port.js';
+import type { ConversationExportApplicationPort } from '../ports/conversation-export-port.js';
 import type { ConversationReaderApplicationPort } from '../ports/conversation-reader-port.js';
 
 export type ConversationAcceptanceStatus = 'PASS' | 'FAIL' | 'INCONCLUSIVE' | 'ERROR';
@@ -41,6 +42,13 @@ export interface ConversationAcceptanceReport {
     readonly markerPresent: boolean;
     readonly reopenedLastResponseMarkerPresent: boolean;
   };
+  readonly export: {
+    readonly attempted: boolean;
+    readonly outputPath?: string;
+    readonly messageCount: number;
+    readonly bytesWritten: number;
+    readonly sha256Present: boolean;
+  };
   readonly status: ConversationAcceptanceStatus;
   readonly passed: boolean;
   readonly conclusive: boolean;
@@ -55,6 +63,7 @@ export interface ConversationAcceptanceReport {
     | 'continuation_response_incomplete'
     | 'continued_transcript_missing_marker'
     | 'continued_transcript_not_extended'
+    | 'export_metadata_mismatch'
     | 'reopened_response_mismatch';
 }
 
@@ -71,7 +80,8 @@ const DEFAULT_MAX_PAGES = 5;
 export async function runConversationAcceptance(
   application: AutomationApplicationPort &
     ConversationCatalogApplicationPort &
-    ConversationReaderApplicationPort,
+    ConversationReaderApplicationPort &
+    ConversationExportApplicationPort,
   options: ConversationAcceptanceOptions,
 ): Promise<ConversationAcceptanceReport> {
   const now = options.now ?? Date.now;
@@ -97,6 +107,7 @@ export async function runConversationAcceptance(
   const runId = String(startedAtMs);
   const seedMarker = `WEB_AUTOMATION_CONVERSATION_SEED::${runId}`;
   const continuationMarker = `WEB_AUTOMATION_CONVERSATION_CONTINUE::${runId}`;
+  const exportOutputPath = `validation/conversation-export-${runId}.md`;
   const pages: ConversationAcceptancePageResult[] = [];
   const seenConversationIds = new Set<string>();
   let duplicateCount = 0;
@@ -113,6 +124,10 @@ export async function runConversationAcceptance(
   let sameConversationId = false;
   let continuationMarkerPresent = false;
   let reopenedLastResponseMarkerPresent = false;
+  let exportAttempted = false;
+  let exportedMessageCount = 0;
+  let exportedBytesWritten = 0;
+  let exportSha256Present = false;
 
   const baseReport = (
     status: ConversationAcceptanceStatus,
@@ -139,6 +154,11 @@ export async function runConversationAcceptance(
       sameConversationId,
       continuationMarkerPresent,
       reopenedLastResponseMarkerPresent,
+      exportAttempted,
+      ...(exportAttempted ? { exportOutputPath } : {}),
+      exportedMessageCount,
+      exportedBytesWritten,
+      exportSha256Present,
       status,
       ...(reason === undefined ? {} : { reason }),
     });
@@ -254,6 +274,26 @@ export async function runConversationAcceptance(
       return baseReport('FAIL', 'continued_transcript_not_extended');
     }
 
+    exportAttempted = true;
+    const exported = await application.exportConversationToFile({
+      provider: 'chatgpt',
+      profileId: options.profileId,
+      conversationId: seedConversationId,
+      outputPath: exportOutputPath,
+      overwrite: false,
+    });
+    exportedMessageCount = exported.messageCount;
+    exportedBytesWritten = exported.bytesWritten;
+    exportSha256Present = exported.sha256.length > 0;
+    if (
+      exported.conversationId !== seedConversationId ||
+      exportedMessageCount !== continuedMessageCount ||
+      exportedBytesWritten <= 0 ||
+      !exportSha256Present
+    ) {
+      return baseReport('FAIL', 'export_metadata_mismatch');
+    }
+
     const reopened = await application.getLastResponse({
       provider: 'chatgpt',
       profileId: options.profileId,
@@ -298,6 +338,11 @@ interface ReportInput {
   readonly sameConversationId: boolean;
   readonly continuationMarkerPresent: boolean;
   readonly reopenedLastResponseMarkerPresent: boolean;
+  readonly exportAttempted: boolean;
+  readonly exportOutputPath?: string;
+  readonly exportedMessageCount: number;
+  readonly exportedBytesWritten: number;
+  readonly exportSha256Present: boolean;
   readonly status: ConversationAcceptanceStatus;
   readonly reason?: ConversationAcceptanceReport['reason'];
 }
@@ -331,6 +376,13 @@ function report(input: ReportInput): ConversationAcceptanceReport {
       sameConversationId: input.sameConversationId,
       markerPresent: input.continuationMarkerPresent,
       reopenedLastResponseMarkerPresent: input.reopenedLastResponseMarkerPresent,
+    },
+    export: {
+      attempted: input.exportAttempted,
+      ...(input.exportOutputPath === undefined ? {} : { outputPath: input.exportOutputPath }),
+      messageCount: input.exportedMessageCount,
+      bytesWritten: input.exportedBytesWritten,
+      sha256Present: input.exportSha256Present,
     },
     status: input.status,
     passed: input.status === 'PASS',
