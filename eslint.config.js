@@ -81,6 +81,29 @@ export default tseslint.config(
     },
   },
   {
+    files: ['src/adapters/chatgpt/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@modelcontextprotocol/*',
+                'playwright',
+                'playwright/*',
+                '../../application/**',
+                '../../mcp/**',
+                '../../session/**',
+              ],
+              message: 'The ChatGPT adapter owns provider page semantics and must depend only on domain/ports, not Playwright, MCP, application orchestration, or session infrastructure.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['src/session/**/*.ts'],
     rules: {
       'no-restricted-imports': [

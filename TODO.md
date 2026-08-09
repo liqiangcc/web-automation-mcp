@@ -33,9 +33,9 @@
 
 ## Phase 3 - ChatGPT vertical slice
 
-- [ ] Semantic target registry
-- [ ] Prompt input resolver
-- [ ] Prompt submit
+- [x] Semantic target registry
+- [x] Prompt input resolver
+- [x] Prompt submit
 - [ ] Assistant response baseline tracking
 - [ ] Completion detector
 - [ ] Plain-text response extractor

@@ -1,26 +1,21 @@
-import type { BrowserPagePort, LocatorCandidate } from '../../ports/browser-port.js';
+import type { BrowserPagePort } from '../../ports/browser-port.js';
 import type { SessionProbe, SessionStatus } from '../../ports/session-probe.js';
-
-const LOGIN_TARGETS: readonly LocatorCandidate[] = [
-  { kind: 'role', role: 'link', name: 'Log in' },
-  { kind: 'role', role: 'button', name: 'Log in' },
-];
-
-const PROMPT_TARGETS: readonly LocatorCandidate[] = [
-  { kind: 'css', value: '#prompt-textarea' },
-  { kind: 'placeholder', text: 'Ask anything' },
-];
+import { ChatGptTargetResolver } from './target-resolver.js';
 
 export class ChatGptSessionProbe implements SessionProbe {
-  public constructor(private readonly page: BrowserPagePort) {}
+  private readonly resolver: ChatGptTargetResolver;
+
+  public constructor(page: BrowserPagePort) {
+    this.resolver = new ChatGptTargetResolver(page);
+  }
 
   public async check(): Promise<SessionStatus> {
     try {
-      if (await anyVisible(this.page, LOGIN_TARGETS)) {
+      if ((await this.resolver.find('login')) !== undefined) {
         return 'AUTH_REQUIRED';
       }
 
-      if (await anyVisible(this.page, PROMPT_TARGETS)) {
+      if ((await this.resolver.find('prompt-input')) !== undefined) {
         return 'AUTHENTICATED';
       }
 
@@ -29,16 +24,4 @@ export class ChatGptSessionProbe implements SessionProbe {
       return 'UNKNOWN';
     }
   }
-}
-
-async function anyVisible(
-  page: BrowserPagePort,
-  candidates: readonly LocatorCandidate[],
-): Promise<boolean> {
-  for (const candidate of candidates) {
-    if (await page.isVisible(candidate)) {
-      return true;
-    }
-  }
-  return false;
 }
