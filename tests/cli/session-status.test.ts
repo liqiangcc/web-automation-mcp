@@ -48,6 +48,37 @@ describe('checkSessionStatus', () => {
     expect(context.closed).toBe(true);
     expect(released).toBe(true);
   });
+
+  it('returns explicit AUTH_REQUIRED without polling for the full stabilization timeout', async () => {
+    const page = new FakePage();
+    const context = new FakeContext(page);
+    const probe = new CountingProbe('AUTH_REQUIRED');
+
+    const result = await checkSessionStatus(
+      { profileId: 'default', timeoutMs: 60_000, pollIntervalMs: 250 },
+      {
+        browser: new FakeBrowser(context),
+        pathResolver: {
+          resolve: () => ({
+            rootDir: '/tmp/root',
+            profileDir: '/tmp/root/profiles/chatgpt/default',
+            lockFile: '/tmp/root/locks/chatgpt--default.lock',
+          }),
+        },
+        profileLock: {
+          acquire: async () => ({
+            lockFile: '/tmp/root/locks/chatgpt--default.lock',
+            release: async () => undefined,
+          }),
+        },
+        createProbe: () => probe,
+      },
+    );
+
+    expect(result).toEqual({ profileId: 'default', status: 'AUTH_REQUIRED' });
+    expect(probe.checks).toBe(1);
+    expect(context.closed).toBe(true);
+  });
 });
 
 class FakeBrowser implements BrowserPort {
@@ -101,6 +132,17 @@ class FixedProbe implements SessionProbe {
   public constructor(private readonly status: SessionStatus) {}
 
   public async check(): Promise<SessionStatus> {
+    return this.status;
+  }
+}
+
+class CountingProbe implements SessionProbe {
+  public checks = 0;
+
+  public constructor(private readonly status: SessionStatus) {}
+
+  public async check(): Promise<SessionStatus> {
+    this.checks += 1;
     return this.status;
   }
 }
