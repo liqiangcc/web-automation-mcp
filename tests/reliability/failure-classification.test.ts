@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { requireAuthenticatedChatGptSession } from '../../src/adapters/chatgpt/authentication.js';
-import { ChatGptCompletionDetector } from '../../src/adapters/chatgpt/completion-detector.js';
+import {
+  ChatGptCompletionDetector,
+  createFallbackWakeupSource,
+} from '../../src/adapters/chatgpt/completion-detector.js';
+import type { CompletionSnapshot } from '../../src/adapters/chatgpt/completion-snapshot.js';
 import { ChatGptConversationNavigator } from '../../src/adapters/chatgpt/conversation-navigator.js';
 import { ChatGptPlainTextResponseExtractor } from '../../src/adapters/chatgpt/response-extractor.js';
 import { ChatGptTargetResolver } from '../../src/adapters/chatgpt/target-resolver.js';
@@ -40,27 +44,35 @@ describe('failure classification matrix', () => {
     });
   });
 
-  it('classifies a response that never appears as GENERATION_TIMEOUT', async () => {
+  it('classifies a response that never starts as RESPONSE_START_TIMEOUT', async () => {
     let now = 0;
+    const dependencies = {
+      now: () => now,
+      sleep: async (delayMs: number) => {
+        now += delayMs;
+      },
+    };
+    const emptySnapshot: CompletionSnapshot = {
+      responses: [],
+      responsePresent: false,
+      generating: false,
+      composerReady: true,
+    };
     const detector = new ChatGptCompletionDetector(
-      { read: async () => [] },
-      { isGenerating: async () => false },
+      { read: async () => emptySnapshot },
+      createFallbackWakeupSource(dependencies),
       {
-        timeoutMs: 20,
-        pollIntervalMs: 10,
-        stableWindowMs: 0,
-        noSignalStableWindowMs: 0,
+        startTimeoutMs: 20,
+        absoluteTimeoutMs: 100,
+        watchdogIntervalMs: 10,
+        fastSettleMs: 0,
+        fallbackSettleMs: 0,
       },
-      {
-        now: () => now,
-        sleep: async (delayMs) => {
-          now += delayMs;
-        },
-      },
+      dependencies,
     );
 
-    await expect(detector.waitForCompletion({ count: 0 })).rejects.toMatchObject({
-      code: 'GENERATION_TIMEOUT',
+    await expect(detector.waitForCompletion()).rejects.toMatchObject({
+      code: 'RESPONSE_START_TIMEOUT',
     });
   });
 
