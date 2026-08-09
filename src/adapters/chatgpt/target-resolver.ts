@@ -13,7 +13,7 @@ export class ChatGptTargetResolver {
   ) {}
 
   public async find(target: ChatGptSemanticTarget): Promise<LocatorCandidate | undefined> {
-    for (const candidate of this.registry[target]) {
+    for (const candidate of this.registry[target] ?? []) {
       try {
         if (await this.page.isVisible(candidate)) {
           return candidate;
