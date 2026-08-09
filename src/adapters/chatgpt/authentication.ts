@@ -1,5 +1,6 @@
 import { WebAutomationError } from '../../domain/errors.js';
 import type { BrowserPagePort } from '../../ports/browser-port.js';
+import { ChatGptPageHealthProbe } from './page-health.js';
 import { ChatGptSessionProbe } from './session-probe.js';
 
 const DEFAULT_UNKNOWN_STABILIZATION_TIMEOUT_MS = 5_000;
@@ -39,6 +40,14 @@ export async function requireAuthenticatedChatGptSession(
 
   if (sessionStatus === 'AUTHENTICATED') {
     return;
+  }
+
+  const health = await new ChatGptPageHealthProbe(page).check();
+  if (health === 'RATE_LIMITED') {
+    throw new WebAutomationError(
+      'PROVIDER_RATE_LIMITED',
+      'ChatGPT is temporarily limiting requests for this browser session',
+    );
   }
 
   throw new WebAutomationError(
