@@ -3,6 +3,7 @@ import { AskUseCase } from '../application/ask.js';
 import { AskToFileUseCase } from '../application/ask-to-file.js';
 import { AskWithFilesUseCase } from '../application/ask-with-files.js';
 import { ConversationUseCases } from '../application/conversation.js';
+import { DeleteConversationUseCase } from '../application/delete-conversation.js';
 import { ExportConversationUseCase } from '../application/export-conversation.js';
 import { GetConversationUseCase } from '../application/get-conversation.js';
 import { ListConversationsUseCase } from '../application/list-conversations.js';
@@ -17,6 +18,7 @@ import type { AttachmentApplicationPort } from '../ports/attachment-application-
 import type { AutomationApplicationPort } from '../ports/automation-application-port.js';
 import type { ConversationCatalogApplicationPort } from '../ports/conversation-catalog-port.js';
 import type { ConversationExportApplicationPort } from '../ports/conversation-export-port.js';
+import type { ConversationMutationApplicationPort } from '../ports/conversation-mutation-port.js';
 import type { ConversationReaderApplicationPort } from '../ports/conversation-reader-port.js';
 import { ChatGptAttachmentProvider } from '../providers/chatgpt-attachment-provider.js';
 import { ChatGptConversationProvider } from '../providers/chatgpt-conversation-provider.js';
@@ -29,7 +31,8 @@ export function createDefaultAutomationApplication(): AutomationApplicationPort 
   AttachmentApplicationPort &
   ConversationCatalogApplicationPort &
   ConversationReaderApplicationPort &
-  ConversationExportApplicationPort {
+  ConversationExportApplicationPort &
+  ConversationMutationApplicationPort {
   const headless = process.env.WEB_AUTOMATION_MCP_HEADLESS !== 'false';
   const workspacePaths = resolveWorkspacePaths(process.cwd(), process.env);
   const maxInputFileBytes = configuredMaxInputFileBytes(
@@ -56,6 +59,7 @@ export function createDefaultAutomationApplication(): AutomationApplicationPort 
     new Map([[conversationProvider.id, conversationProvider]]),
   );
   const conversationReaders = new Map([[conversationProvider.id, conversationProvider]]);
+  const conversationMutations = new Map([[conversationProvider.id, conversationProvider]]);
   const listConversationsUseCase = new ListConversationsUseCase(
     new Map([[conversationProvider.id, conversationProvider]]),
   );
@@ -64,12 +68,14 @@ export function createDefaultAutomationApplication(): AutomationApplicationPort 
     conversationReaders,
     answerFiles,
   );
+  const deleteConversationUseCase = new DeleteConversationUseCase(conversationMutations);
 
   const application: AutomationApplicationPort &
     AttachmentApplicationPort &
     ConversationCatalogApplicationPort &
     ConversationReaderApplicationPort &
-    ConversationExportApplicationPort = {
+    ConversationExportApplicationPort &
+    ConversationMutationApplicationPort = {
     ask: (request) => askUseCase.execute(request),
     askWithFiles: (request) => askWithFilesUseCase.execute(request),
     askToFile: (request) => askToFileUseCase.execute(request),
@@ -80,6 +86,7 @@ export function createDefaultAutomationApplication(): AutomationApplicationPort 
     getConversation: (request) => getConversationUseCase.getConversation(request),
     exportConversationToFile: (request) =>
       exportConversationUseCase.exportConversationToFile(request),
+    deleteConversation: (request) => deleteConversationUseCase.deleteConversation(request),
   };
 
   return new ObservedAutomationApplication(application, {
