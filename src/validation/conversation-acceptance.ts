@@ -58,6 +58,7 @@ export interface ConversationAcceptanceReport {
     | 'seed_not_discovered'
     | 'duplicate_conversation_ids'
     | 'pagination_not_exercised'
+    | 'provider_rate_limited'
     | 'initial_transcript_missing_seed'
     | 'continuation_changed_conversation'
     | 'continuation_response_incomplete'
@@ -310,6 +311,13 @@ export async function runConversationAcceptance(
       paginationExercised ? undefined : 'pagination_not_exercised',
     );
   } catch (error) {
+    if (error instanceof WebAutomationError && error.code === 'PROVIDER_RATE_LIMITED') {
+      return {
+        ...baseReport('INCONCLUSIVE', 'provider_rate_limited'),
+        errorCode: error.code,
+      };
+    }
+
     return {
       ...baseReport('ERROR'),
       errorCode: classifyError(error),
