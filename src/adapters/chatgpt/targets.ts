@@ -7,7 +7,8 @@ export type ChatGptSemanticTarget =
   | 'file-input'
   | 'assistant-response'
   | 'generation-stop'
-  | 'conversation-link';
+  | 'conversation-link'
+  | 'conversation-message';
 
 export type ChatGptTargetRegistry = Readonly<
   Partial<Record<ChatGptSemanticTarget, readonly LocatorCandidate[]>>
@@ -44,4 +45,5 @@ export const CHATGPT_TARGETS = {
     { kind: 'role', role: 'button', name: 'Stop streaming' },
   ],
   'conversation-link': [{ kind: 'css', value: 'a[href^="/c/"]' }],
+  'conversation-message': [{ kind: 'css', value: '[data-message-author-role]' }],
 } satisfies Readonly<Record<ChatGptSemanticTarget, readonly LocatorCandidate[]>>;
