@@ -55,7 +55,8 @@
 
 - [x] Structured request lifecycle logs
 - [x] Diagnostics bundle
-- [ ] 30-run validation matrix
+- [x] Implement executable 30-run live validation matrix and structured report
+- [ ] Execute the 30-run matrix on a real authenticated profile and reach >=95% complete-response success
 - [x] Failure classification tests
 - [x] Locator fallback test fixture
 - [x] Security/redaction tests
@@ -81,6 +82,7 @@
 - [x] Preserve `WEB_AUTOMATION_MCP_INPUT_ROOT` and `WEB_AUTOMATION_MCP_OUTPUT_ROOT` as advanced overrides
 - [x] Add workspace/root precedence and compatibility tests
 - [x] Update local Codex registration/testing examples for zero-config workspace-relative paths
+- [x] Add browser-free workspace fingerprint verification mode
 
 ### Real validation
 
