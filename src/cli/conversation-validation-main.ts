@@ -33,6 +33,7 @@ async function main(): Promise<void> {
         discovery: report.discovery,
         reading: report.reading,
         continuation: report.continuation,
+        export: report.export,
         createdConversationIds: report.createdConversationIds,
         ...(report.reason === undefined ? {} : { reason: report.reason }),
         ...(report.errorCode === undefined ? {} : { errorCode: report.errorCode }),
@@ -102,7 +103,7 @@ function defaultReportPath(): string {
 }
 
 function printHelp(): void {
-  console.log(`Usage: npm run validate:conversations -- [options]\n\nOptions:\n  --profile <id>       Browser profile id (default: default)\n  --report <relative>  Report path under the effective output root\n  --page-size <count>  Conversations per page (default: 5, maximum: 50)\n  --max-pages <count>  Maximum pages to inspect (default: 5)\n  --help               Show this help\n\nValidation flow:\n  create disposable seed conversation\n  -> discover it through paginated conversation listing\n  -> read the full semantic transcript and verify the seed assistant marker\n  -> exercise at least a second cursor page when available\n  -> continue the same explicit conversationId\n  -> read the transcript again and prove it extended with the continuation marker\n  -> reopen and verify the last response\n\nExit codes:\n  0  Acceptance passed\n  1  Acceptance conclusively failed\n  2  Acceptance was inconclusive (for example, there were not enough conversations to exercise pagination)\n`);
+  console.log(`Usage: npm run validate:conversations -- [options]\n\nOptions:\n  --profile <id>       Browser profile id (default: default)\n  --report <relative>  Report path under the effective output root\n  --page-size <count>  Conversations per page (default: 5, maximum: 50)\n  --max-pages <count>  Maximum pages to inspect (default: 5)\n  --help               Show this help\n\nValidation flow:\n  create disposable seed conversation\n  -> discover it through paginated conversation listing\n  -> read the full semantic transcript and verify the seed assistant marker\n  -> exercise at least a second cursor page when available\n  -> continue the same explicit conversationId\n  -> read the transcript again and prove it extended with the continuation marker\n  -> export the complete transcript to a restricted workspace file and verify export metadata\n  -> reopen and verify the last response\n\nExit codes:\n  0  Acceptance passed\n  1  Acceptance conclusively failed\n  2  Acceptance was inconclusive (for example, there were not enough conversations to exercise pagination)\n`);
 }
 
 main().catch((error: unknown) => {
