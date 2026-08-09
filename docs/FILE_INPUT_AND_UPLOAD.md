@@ -2,22 +2,27 @@
 
 ## 1. Decision
 
-V0.1 adds one atomic MCP operation for local-file input:
+V0.1 exposes one atomic MCP operation for local-file input:
 
 ```text
 web_ask_with_files(profileId, prompt, files[], conversationId?)
 ```
 
-The operation validates local files inside a configured input root, uploads them to the provider UI, submits the prompt, waits for completion, and returns the normal answer result.
+The operation validates workspace-relative local files, uploads them to the provider UI, submits the prompt, waits for completion, and returns the normal answer result.
 
 V0.1 does **not** expose a standalone `web_upload_file` operation. Uploading a file without submitting the associated prompt would create hidden browser state that must survive across MCP calls and would couple later requests to a particular tab/composer state.
 
-A text-only `web_ask_from_file` operation is deferred. It can be useful for bypassing MCP/model context transfer, but native provider attachment upload covers more file types and is the higher-value first capability.
+A text-only `web_ask_from_file` operation is deferred. Native provider attachment upload covers more file types and is the higher-value first capability.
+
+Workspace semantics are defined in `docs/WORKSPACE_PATHS.md`.
 
 ## 2. Core use case
 
 ```text
-Local Files
+Codex workspace
+    |
+    v
+workspace-relative file paths
     |
     v
 Restricted Input Resolver
@@ -41,10 +46,10 @@ ChatGPT Web
 Complete Response
 ```
 
-Combined with `web_ask_to_file`, this creates the desired local-to-web-to-local flow:
+Combined with `web_ask_to_file`, this creates the local-to-web-to-local flow:
 
 ```text
-Local input files
+workspace input files
       |
       v
 web_ask_with_files
@@ -59,7 +64,7 @@ response
 web_ask_to_file / normal MCP result
       |
       v
-Local output
+workspace/mcp-output
 ```
 
 ## 3. MCP contract
@@ -83,13 +88,17 @@ Input:
 
 Rules:
 
-- `files` contains paths relative to `WEB_AUTOMATION_MCP_INPUT_ROOT`.
+- `files` always contains relative paths.
+- Normal zero-config behavior resolves those paths beneath the MCP workspace root.
+- The workspace root defaults to the MCP server startup cwd, which should match the Codex session startup working directory in normal local use.
+- `WEB_AUTOMATION_MCP_WORKSPACE` can explicitly set the workspace root.
+- `WEB_AUTOMATION_MCP_INPUT_ROOT` is an advanced input-only override.
 - At least one file is required.
 - V0.1 limits one request to 10 files.
-- Absolute paths and path traversal are rejected.
-- Resolved files must remain inside the configured input root.
+- Absolute paths and traversal are rejected.
+- Resolved files must remain inside the effective input root.
 - Only regular files are accepted.
-- The MCP result never returns local absolute input paths.
+- MCP results never return canonical absolute input paths.
 
 Output:
 
@@ -104,15 +113,38 @@ Output:
 }
 ```
 
-## 4. Input-root security model
+## 4. Workspace and input-root model
 
-Configuration:
+Normal local Codex usage should require no file-root configuration:
 
-```text
-WEB_AUTOMATION_MCP_INPUT_ROOT=/safe/workspace
+```bash
+cd /home/user/project
+codex
 ```
 
-When unset, V0.1 uses the MCP server working directory as the input root, matching the existing output-root fallback model.
+Conceptually:
+
+```text
+workspaceRoot = WEB_AUTOMATION_MCP_WORKSPACE ?? startupCwd
+inputRoot = WEB_AUTOMATION_MCP_INPUT_ROOT ?? workspaceRoot
+outputRoot = WEB_AUTOMATION_MCP_OUTPUT_ROOT ?? workspaceRoot/mcp-output
+```
+
+Therefore:
+
+```text
+files: ["docs/design.pdf"]
+```
+
+maps internally to:
+
+```text
+<workspaceRoot>/docs/design.pdf
+```
+
+The workspace root is resolved once for the MCP runtime. It must not silently follow later `cd` commands executed by an agent. A new repository/workspace should use a restarted MCP process or an explicit workspace override.
+
+## 5. Input security model
 
 The file resolver must reject:
 
@@ -121,24 +153,36 @@ The file resolver must reject:
 - absolute Windows paths;
 - `..` traversal segments;
 - NUL bytes;
-- paths whose canonical target escapes the configured root through symlinks;
+- paths whose canonical target escapes the effective input root through symlinks;
 - directories, devices, sockets and other non-regular files;
 - missing files;
-- requests exceeding the configured safety limits.
+- requests exceeding configured safety limits.
+
+The public invariant is:
+
+> relative path in, canonical path internally, root confinement before provider use.
+
+Workspace/root selection is server-side policy. MCP request data must never be able to replace or widen the configured root.
 
 The resolver returns canonical paths only to the provider/browser side. MCP responses, lifecycle logs and diagnostics do not include those paths.
 
-## 5. Safety limits
+## 6. Safety limits
 
-V0.1 uses local safety limits, independent of provider limits:
+V0.1 uses local safety limits independent of provider limits:
 
 - maximum files per request: 10;
 - maximum bytes per file: configurable through `WEB_AUTOMATION_MCP_MAX_INPUT_FILE_BYTES`;
 - default maximum bytes per file: 50 MiB.
 
-Provider-specific file-type and upload-size restrictions remain provider concerns. The local resolver protects the host filesystem; it must not attempt to duplicate every ChatGPT product rule.
+Provider-specific file-type and upload-size restrictions remain provider concerns. The local resolver protects the host filesystem; it must not duplicate every ChatGPT product rule.
 
-## 6. Concern boundaries
+## 7. Concern boundaries
+
+### Runtime workspace policy
+
+Owns selection of a stable workspace root for the MCP process lifetime.
+
+It does not resolve ChatGPT selectors and does not read file contents.
 
 ### `application/AskWithFilesUseCase`
 
@@ -171,7 +215,7 @@ interface InputFilePort {
 
 Owns:
 
-- root confinement;
+- effective input-root confinement;
 - canonicalization;
 - regular-file checks;
 - size/count limits;
@@ -183,7 +227,7 @@ It does not know ChatGPT.
 
 Represents a provider that can accept local attachments with a prompt.
 
-It receives already validated canonical file descriptors. It does not perform filesystem authorization.
+It receives already validated canonical file descriptors. It does not perform host-filesystem authorization.
 
 ### `adapters/chatgpt/ChatGptAttachmentUploader`
 
@@ -199,7 +243,7 @@ It does not decide which host paths are allowed.
 
 Owns the browser mechanic for setting files on an HTML file input. It does not know what the files mean.
 
-## 7. Dependency direction
+## 8. Dependency direction
 
 ```text
 mcp
@@ -207,7 +251,8 @@ mcp
       -> InputFilePort
       -> ProviderAttachmentPort
 
-infrastructure/input-file
+runtime/infrastructure
+  -> workspace policy
   -> InputFilePort
 
 chatgpt attachment adapter
@@ -222,16 +267,17 @@ Forbidden:
 ```text
 mcp -> fs
 mcp -> Playwright
+mcp request -> arbitrary workspace root
 application -> fs
 application -> Playwright
 application -> ChatGPT selectors
-ChatGPT adapter -> input-root policy
+ChatGPT adapter -> workspace/input-root policy
 Playwright adapter -> ChatGPT concepts
 ```
 
-## 8. Browser capability
+## 9. Browser capability
 
-`BrowserPagePort` gains a generic file-input mechanic, conceptually:
+`BrowserPagePort` provides generic file-input mechanics:
 
 ```ts
 exists(locator): Promise<boolean>
@@ -240,15 +286,16 @@ setInputFiles(locator, filePaths): Promise<void>
 
 `exists` is separate from `isVisible` because HTML file inputs are commonly hidden while still being valid automation targets.
 
-The ChatGPT semantic registry gains a `file-input` target. The provider adapter resolves an existing file input rather than requiring it to be visible.
+The ChatGPT semantic registry contains a `file-input` target. The provider adapter resolves an existing file input rather than requiring it to be visible.
 
-## 9. Ask-with-files state machine
+## 10. Ask-with-files state machine
 
 ```text
-ACQUIRE_PROFILE
+RESOLVE_WORKSPACE_POLICY
+  -> RESOLVE_LOCAL_FILES
+  -> ACQUIRE_PROFILE
   -> OPEN_OR_RESUME_CONVERSATION
   -> PROBE_SESSION
-  -> RESOLVE_LOCAL_FILES
   -> RESOLVE_FILE_INPUT
   -> ATTACH_FILES
   -> CAPTURE_RESPONSE_BASELINE
@@ -261,16 +308,18 @@ ACQUIRE_PROFILE
   -> RETURN
 ```
 
-The implementation may capture the response baseline immediately before prompt submission. Uploading attachments must not be interpreted as a new assistant response.
+The exact acquisition order may differ in implementation, but local authorization must happen before canonical paths are exposed to the provider/browser boundary.
 
-## 10. Error taxonomy
+Uploading attachments must not be interpreted as a new assistant response.
 
-Add stable errors for the new boundary:
+## 11. Error taxonomy
+
+Stable errors for the file-input boundary:
 
 - `INPUT_PATH_NOT_ALLOWED` - requested path violates root/path policy;
 - `INPUT_FILE_NOT_FOUND` - requested file does not exist or cannot be resolved;
 - `INPUT_FILE_TOO_LARGE` - local safety limit exceeded;
-- `FILE_UPLOAD_FAILED` - provider/browser could not attach the validated files.
+- `FILE_UPLOAD_FAILED` - provider/browser could not attach validated files.
 
 Existing errors continue to apply:
 
@@ -282,7 +331,7 @@ Existing errors continue to apply:
 - `EXTRACTION_FAILED`
 - `PROVIDER_CHANGED`
 
-## 11. Observability and redaction
+## 12. Observability and redaction
 
 Lifecycle events may record:
 
@@ -306,30 +355,33 @@ They must not record:
 
 Diagnostics follow the same rule.
 
-## 12. V0.1 acceptance criteria
+## 13. V0.1 acceptance criteria
 
 Automated tests must prove:
 
-1. traversal and absolute paths are rejected;
-2. symlink escape cannot leave the input root;
-3. missing files are classified;
-4. oversized files are rejected;
-5. normal files resolve to canonical paths;
-6. MCP never returns canonical input paths;
-7. ChatGPT attachment resolution can fall back when the primary locator drifts;
-8. attachment errors map to stable public MCP errors;
-9. normal `web_ask` and `web_ask_to_file` behavior remains unchanged;
-10. MCP Inspector discovers `web_ask_with_files`.
+1. startup cwd becomes the default workspace when no overrides are configured;
+2. explicit workspace/input overrides preserve backward-compatible advanced control;
+3. traversal and absolute paths are rejected;
+4. symlink escape cannot leave the input root;
+5. missing files are classified;
+6. oversized files are rejected;
+7. normal files resolve to canonical paths;
+8. MCP never returns canonical input paths;
+9. ChatGPT attachment resolution can fall back when the primary locator drifts;
+10. attachment errors map to stable public MCP errors;
+11. normal `web_ask` and `web_ask_to_file` behavior remains unchanged;
+12. MCP Inspector discovers `web_ask_with_files`.
 
 Real local validation must additionally prove:
 
-1. one text file can be uploaded and analyzed;
-2. one PDF or image can be uploaded and analyzed;
-3. two files can be uploaded in one request;
-4. a follow-up with `conversationId` works;
-5. shared-CDP Chrome mode works without closing the externally managed Chrome process.
+1. starting Codex in repository A makes repository-relative paths work without per-project root configuration;
+2. one text file can be uploaded and analyzed;
+3. one PDF or image can be uploaded and analyzed;
+4. two files can be uploaded in one request;
+5. a follow-up with `conversationId` works;
+6. shared-CDP Chrome mode works without closing the externally managed Chrome process.
 
-## 13. Deferred capabilities
+## 14. Deferred capabilities
 
 Do not add these until the atomic operation is proven stable:
 
@@ -337,6 +389,7 @@ Do not add these until the atomic operation is proven stable:
 - persistent attachment handles across MCP calls;
 - automatic directory upload;
 - arbitrary unrestricted host-file access;
+- per-request workspace switching;
 - provider-independent MIME policy;
 - file-content extraction/OCR inside this MCP;
 - `web_ask_from_file` text-inlining optimization.
