@@ -1,19 +1,21 @@
 import type { CallToolResult } from '@modelcontextprotocol/server';
 
 import type {
-  AutomationApplicationPort,
-  LastResponseRequest,
-  NewChatRequest,
-  SessionStatusRequest,
-} from '../ports/automation-application-port.js';
-import type {
   AskRequest,
   AskToFileRequest,
+  AskWithFilesRequest,
   ConversationId,
   ProfileId,
   ProviderId,
 } from '../domain/conversation.js';
 import { WebAutomationError } from '../domain/errors.js';
+import type { AttachmentApplicationPort } from '../ports/attachment-application-port.js';
+import type {
+  AutomationApplicationPort,
+  LastResponseRequest,
+  NewChatRequest,
+  SessionStatusRequest,
+} from '../ports/automation-application-port.js';
 
 export interface WebSessionStatusToolInput {
   readonly provider: ProviderId;
@@ -25,6 +27,10 @@ export interface WebAskToolInput {
   readonly profileId: ProfileId;
   readonly prompt: string;
   readonly conversationId?: ConversationId;
+}
+
+export interface WebAskWithFilesToolInput extends WebAskToolInput {
+  readonly files: readonly string[];
 }
 
 export interface WebAskToFileToolInput extends WebAskToolInput {
@@ -87,6 +93,39 @@ export async function handleWebAsk(
         profileId: result.profileId,
         conversationId: result.conversationId,
         responseText: result.responseText,
+      },
+    };
+  } catch (error) {
+    return toMcpToolError(error);
+  }
+}
+
+export async function handleWebAskWithFiles(
+  input: WebAskWithFilesToolInput,
+  application: AutomationApplicationPort & Partial<AttachmentApplicationPort>,
+): Promise<CallToolResult> {
+  try {
+    const askWithFiles = application.askWithFiles;
+    if (askWithFiles === undefined) {
+      throw new Error('Attachment application capability is not configured.');
+    }
+    const request: AskWithFilesRequest = {
+      provider: input.provider,
+      profileId: input.profileId,
+      prompt: input.prompt,
+      files: input.files,
+      ...(input.conversationId === undefined ? {} : { conversationId: input.conversationId }),
+    };
+    const result = await askWithFiles.call(application, request);
+    return {
+      content: [{ type: 'text', text: result.responseText }],
+      structuredContent: {
+        ok: true,
+        provider: result.provider,
+        profileId: result.profileId,
+        conversationId: result.conversationId,
+        responseText: result.responseText,
+        fileCount: result.fileCount,
       },
     };
   } catch (error) {
@@ -232,6 +271,14 @@ function publicMessageFor(error: WebAutomationError): string {
       return 'The provider page is currently unavailable.';
     case 'PROVIDER_CHANGED':
       return 'The provider page behavior appears to have changed.';
+    case 'INPUT_PATH_NOT_ALLOWED':
+      return 'The input path is outside the configured input directory or is not allowed.';
+    case 'INPUT_FILE_NOT_FOUND':
+      return 'The requested input file was not found.';
+    case 'INPUT_FILE_TOO_LARGE':
+      return 'The requested input file exceeds the configured local size limit.';
+    case 'FILE_UPLOAD_FAILED':
+      return 'The validated local files could not be attached to the provider.';
     case 'OUTPUT_PATH_NOT_ALLOWED':
       return 'The output path is outside the configured output directory.';
     case 'FILE_ALREADY_EXISTS':

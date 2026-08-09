@@ -1,10 +1,12 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 
+import type { AttachmentApplicationPort } from '../ports/attachment-application-port.js';
 import type { AutomationApplicationPort } from '../ports/automation-application-port.js';
 import {
   handleWebAsk,
   handleWebAskToFile,
+  handleWebAskWithFiles,
   handleWebGetLastResponse,
   handleWebNewChat,
   handleWebSessionStatus,
@@ -18,7 +20,9 @@ const ProfileIdSchema = z
   .describe('Local persistent browser profile id, for example default');
 const ConversationIdSchema = z.string().min(1).describe('Provider conversation id.');
 
-export function createMcpServer(application: AutomationApplicationPort): McpServer {
+export function createMcpServer(
+  application: AutomationApplicationPort & Partial<AttachmentApplicationPort>,
+): McpServer {
   const server = new McpServer({
     name: 'web-automation-mcp',
     version: '0.1.0',
@@ -101,6 +105,44 @@ export function createMcpServer(application: AutomationApplicationPort): McpServ
           provider: provider ?? 'chatgpt',
           profileId,
           prompt,
+          ...(conversationId === undefined ? {} : { conversationId }),
+        },
+        application,
+      ),
+  );
+
+  server.registerTool(
+    'web_ask_with_files',
+    {
+      title: 'Ask a web AI with local files',
+      description:
+        'Upload one or more local files from WEB_AUTOMATION_MCP_INPUT_ROOT to the authenticated web AI session, submit a prompt, and return the completed response. Input paths must be relative to the configured input root.',
+      inputSchema: z.object({
+        provider: ProviderSchema.describe('Web provider. ChatGPT is the only provider in v0.1.'),
+        profileId: ProfileIdSchema,
+        prompt: z.string().min(1).describe('Prompt to submit with the attachments.'),
+        files: z
+          .array(z.string().min(1).max(4096))
+          .min(1)
+          .max(10)
+          .describe('Relative local file paths inside WEB_AUTOMATION_MCP_INPUT_ROOT.'),
+        conversationId: ConversationIdSchema.optional().describe(
+          'Existing provider conversation id. Omit to start a new conversation.',
+        ),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
+    },
+    async ({ provider, profileId, prompt, files, conversationId }) =>
+      handleWebAskWithFiles(
+        {
+          provider: provider ?? 'chatgpt',
+          profileId,
+          prompt,
+          files,
           ...(conversationId === undefined ? {} : { conversationId }),
         },
         application,

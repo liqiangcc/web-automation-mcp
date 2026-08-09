@@ -60,6 +60,18 @@
 - [x] Locator fallback test fixture
 - [x] Security/redaction tests
 
+## Phase 5.5 - Local file input and web upload
+
+- [x] Document input-root, attachment and security design
+- [x] Add restricted local input file resolver
+- [x] Add generic browser file-input capability
+- [x] Add ChatGPT attachment uploader and provider port
+- [x] Add `web_ask_with_files`
+- [x] Add path confinement, upload and MCP redaction unit tests
+- [x] Add `web_ask_with_files` to MCP Inspector smoke test
+- [ ] Validate text/PDF or image/multiple-file upload with a real authenticated local profile
+- [ ] Validate attachment flow through shared-CDP Chrome mode
+
 ## Phase 6 - Only after V0.1 proves stable
 
 - [ ] Page fingerprint/change detector
