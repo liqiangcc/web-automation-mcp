@@ -46,7 +46,10 @@ export const CHATGPT_TARGETS = {
     { kind: 'role', role: 'button', name: 'Stop generating' },
     { kind: 'role', role: 'button', name: 'Stop streaming' },
   ],
-  'conversation-link': [{ kind: 'css', value: 'a[href^="/c/"]' }],
+  'conversation-link': [
+    { kind: 'css', value: 'a[href^="/c/"]' },
+    { kind: 'css', value: 'a[href*="chatgpt.com/c/"]' },
+  ],
   'conversation-message': [{ kind: 'css', value: '[data-message-author-role]' }],
   'conversation-delete-action': [
     { kind: 'role', role: 'menuitem', name: 'Delete' },
