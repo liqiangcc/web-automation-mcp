@@ -17,6 +17,11 @@ export interface DomChangeWaitOptions {
 
 export type DomChangeWaitResult = 'changed' | 'timeout';
 
+export interface BrowserElementSnapshot {
+  readonly text: string;
+  readonly attributes: Readonly<Record<string, string | null>>;
+}
+
 export interface BrowserPort {
   launchPersistentContext(options: PersistentBrowserOptions): Promise<BrowserContextPort>;
 }
@@ -33,6 +38,11 @@ export interface BrowserPagePort {
   exists?(locator: LocatorCandidate): Promise<boolean>;
   isEditable?(locator: LocatorCandidate): Promise<boolean>;
   waitForDomChange?(options: DomChangeWaitOptions): Promise<DomChangeWaitResult>;
+  elementSnapshots?(
+    locator: LocatorCandidate,
+    attributeNames: readonly string[],
+  ): Promise<readonly BrowserElementSnapshot[]>;
+  scrollIntoView?(locator: LocatorCandidate, index: number): Promise<void>;
   fill(locator: LocatorCandidate, value: string): Promise<void>;
   click(locator: LocatorCandidate): Promise<void>;
   press(locator: LocatorCandidate, key: string): Promise<void>;
