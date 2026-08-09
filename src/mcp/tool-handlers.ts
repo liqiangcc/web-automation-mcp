@@ -191,7 +191,7 @@ export async function handleWebAsk(
 
 export async function handleWebAskWithFiles(
   input: WebAskWithFilesToolInput,
-  application: AutomationApplicationPort & Partial<AttachmentApplicationPort>,
+  application: Partial<AttachmentApplicationPort>,
 ): Promise<CallToolResult> {
   try {
     const askWithFiles = application.askWithFiles;
@@ -214,7 +214,6 @@ export async function handleWebAskWithFiles(
         profileId: result.profileId,
         conversationId: result.conversationId,
         responseText: result.responseText,
-        fileCount: result.fileCount,
       },
     };
   } catch (error) {
@@ -232,15 +231,20 @@ export async function handleWebAskToFile(
       profileId: input.profileId,
       prompt: input.prompt,
       outputPath: input.outputPath,
-      overwrite: input.overwrite ?? false,
       ...(input.conversationId === undefined ? {} : { conversationId: input.conversationId }),
+      ...(input.overwrite === undefined ? {} : { overwrite: input.overwrite }),
     };
     const result = await application.askToFile(request);
     return {
       content: [
         {
           type: 'text',
-          text: `Saved web AI response to ${result.filePath} (${result.bytesWritten} bytes).`,
+          text: JSON.stringify({
+            conversationId: result.conversationId,
+            filePath: result.filePath,
+            bytesWritten: result.bytesWritten,
+            sha256: result.sha256,
+          }),
         },
       ],
       structuredContent: {
@@ -362,6 +366,8 @@ function publicMessageFor(error: WebAutomationError): string {
       return 'The provider response could not be extracted reliably.';
     case 'PROVIDER_UNAVAILABLE':
       return 'The provider page is currently unavailable.';
+    case 'PROVIDER_RATE_LIMITED':
+      return 'The provider is temporarily limiting requests. Retry later instead of treating the result as empty.';
     case 'PROVIDER_CHANGED':
       return 'The provider page behavior appears to have changed.';
     case 'CONVERSATION_NOT_FOUND':
@@ -379,14 +385,14 @@ function publicMessageFor(error: WebAutomationError): string {
     case 'INPUT_FILE_NOT_FOUND':
       return 'The requested input file was not found.';
     case 'INPUT_FILE_TOO_LARGE':
-      return 'The requested input file exceeds the configured local size limit.';
+      return 'The requested input file exceeds the configured size limit.';
     case 'FILE_UPLOAD_FAILED':
-      return 'The validated local files could not be attached to the provider.';
+      return 'The provider did not accept one or more requested input files.';
     case 'OUTPUT_PATH_NOT_ALLOWED':
-      return 'The output path is outside the configured output directory.';
+      return 'The output path is outside the configured output directory or is not allowed.';
     case 'FILE_ALREADY_EXISTS':
-      return 'The output file already exists. Enable overwrite or choose another path.';
+      return 'The output file already exists and overwrite was not enabled.';
     case 'FILE_WRITE_FAILED':
-      return 'The provider response could not be saved to the requested file.';
+      return 'The output file could not be written safely.';
   }
 }
