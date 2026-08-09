@@ -1,6 +1,7 @@
 import { WebAutomationError, type ExecutionErrorCode } from '../domain/errors.js';
 import type { AutomationApplicationPort } from '../ports/automation-application-port.js';
 import type { ConversationCatalogApplicationPort } from '../ports/conversation-catalog-port.js';
+import type { ConversationReaderApplicationPort } from '../ports/conversation-reader-port.js';
 
 export type ConversationAcceptanceStatus = 'PASS' | 'FAIL' | 'INCONCLUSIVE' | 'ERROR';
 
@@ -26,6 +27,14 @@ export interface ConversationAcceptanceReport {
     readonly duplicateCount: number;
     readonly paginationExercised: boolean;
   };
+  readonly reading: {
+    readonly initialAttempted: boolean;
+    readonly initialMarkerPresent: boolean;
+    readonly initialMessageCount: number;
+    readonly continuedAttempted: boolean;
+    readonly continuedMarkerPresent: boolean;
+    readonly continuedMessageCount: number;
+  };
   readonly continuation: {
     readonly attempted: boolean;
     readonly sameConversationId: boolean;
@@ -41,8 +50,11 @@ export interface ConversationAcceptanceReport {
     | 'seed_not_discovered'
     | 'duplicate_conversation_ids'
     | 'pagination_not_exercised'
+    | 'initial_transcript_missing_seed'
     | 'continuation_changed_conversation'
     | 'continuation_response_incomplete'
+    | 'continued_transcript_missing_marker'
+    | 'continued_transcript_not_extended'
     | 'reopened_response_mismatch';
 }
 
@@ -57,7 +69,9 @@ const DEFAULT_PAGE_SIZE = 5;
 const DEFAULT_MAX_PAGES = 5;
 
 export async function runConversationAcceptance(
-  application: AutomationApplicationPort & ConversationCatalogApplicationPort,
+  application: AutomationApplicationPort &
+    ConversationCatalogApplicationPort &
+    ConversationReaderApplicationPort,
   options: ConversationAcceptanceOptions,
 ): Promise<ConversationAcceptanceReport> {
   const now = options.now ?? Date.now;
@@ -89,10 +103,45 @@ export async function runConversationAcceptance(
   let seedConversationId: string | undefined;
   let seedFound = false;
   let paginationExercised = false;
+  let initialReadAttempted = false;
+  let initialReadMarkerPresent = false;
+  let initialMessageCount = 0;
+  let continuedReadAttempted = false;
+  let continuedReadMarkerPresent = false;
+  let continuedMessageCount = 0;
   let continuationAttempted = false;
   let sameConversationId = false;
   let continuationMarkerPresent = false;
   let reopenedLastResponseMarkerPresent = false;
+
+  const baseReport = (
+    status: ConversationAcceptanceStatus,
+    reason?: ConversationAcceptanceReport['reason'],
+  ): ConversationAcceptanceReport =>
+    report({
+      options,
+      startedAt,
+      now,
+      pageSize,
+      maxPages,
+      pages,
+      ...(seedConversationId === undefined ? {} : { seedConversationId }),
+      seedFound,
+      duplicateCount,
+      paginationExercised,
+      initialReadAttempted,
+      initialReadMarkerPresent,
+      initialMessageCount,
+      continuedReadAttempted,
+      continuedReadMarkerPresent,
+      continuedMessageCount,
+      continuationAttempted,
+      sameConversationId,
+      continuationMarkerPresent,
+      reopenedLastResponseMarkerPresent,
+      status,
+      ...(reason === undefined ? {} : { reason }),
+    });
 
   try {
     const seed = await application.ask({
@@ -103,24 +152,7 @@ export async function runConversationAcceptance(
     seedConversationId = seed.conversationId;
 
     if (!seed.responseText.includes(seedMarker)) {
-      return report({
-        options,
-        startedAt,
-        now,
-        pageSize,
-        maxPages,
-        pages,
-        seedConversationId,
-        seedFound,
-        duplicateCount,
-        paginationExercised,
-        continuationAttempted,
-        sameConversationId,
-        continuationMarkerPresent,
-        reopenedLastResponseMarkerPresent,
-        status: 'FAIL',
-        reason: 'seed_response_incomplete',
-      });
+      return baseReport('FAIL', 'seed_response_incomplete');
     }
 
     let cursor: string | undefined;
@@ -156,24 +188,7 @@ export async function runConversationAcceptance(
       });
 
       if (duplicateCount > 0) {
-        return report({
-          options,
-          startedAt,
-          now,
-          pageSize,
-          maxPages,
-          pages,
-          seedConversationId,
-          seedFound,
-          duplicateCount,
-          paginationExercised,
-          continuationAttempted,
-          sameConversationId,
-          continuationMarkerPresent,
-          reopenedLastResponseMarkerPresent,
-          status: 'FAIL',
-          reason: 'duplicate_conversation_ids',
-        });
+        return baseReport('FAIL', 'duplicate_conversation_ids');
       }
 
       if (pageIndex >= 2) {
@@ -190,25 +205,20 @@ export async function runConversationAcceptance(
       }
     }
 
-    if (!seedFound) {
-      return report({
-        options,
-        startedAt,
-        now,
-        pageSize,
-        maxPages,
-        pages,
-        seedConversationId,
-        seedFound,
-        duplicateCount,
-        paginationExercised,
-        continuationAttempted,
-        sameConversationId,
-        continuationMarkerPresent,
-        reopenedLastResponseMarkerPresent,
-        status: 'FAIL',
-        reason: 'seed_not_discovered',
-      });
+    if (!seedFound || seedConversationId === undefined) {
+      return baseReport('FAIL', 'seed_not_discovered');
+    }
+
+    initialReadAttempted = true;
+    const initialTranscript = await application.getConversation({
+      provider: 'chatgpt',
+      profileId: options.profileId,
+      conversationId: seedConversationId,
+    });
+    initialMessageCount = initialTranscript.messages.length;
+    initialReadMarkerPresent = hasAssistantMarker(initialTranscript.messages, seedMarker);
+    if (!initialReadMarkerPresent) {
+      return baseReport('FAIL', 'initial_transcript_missing_seed');
     }
 
     continuationAttempted = true;
@@ -222,45 +232,26 @@ export async function runConversationAcceptance(
     continuationMarkerPresent = continued.responseText.includes(continuationMarker);
 
     if (!sameConversationId) {
-      return report({
-        options,
-        startedAt,
-        now,
-        pageSize,
-        maxPages,
-        pages,
-        seedConversationId,
-        seedFound,
-        duplicateCount,
-        paginationExercised,
-        continuationAttempted,
-        sameConversationId,
-        continuationMarkerPresent,
-        reopenedLastResponseMarkerPresent,
-        status: 'FAIL',
-        reason: 'continuation_changed_conversation',
-      });
+      return baseReport('FAIL', 'continuation_changed_conversation');
     }
 
     if (!continuationMarkerPresent) {
-      return report({
-        options,
-        startedAt,
-        now,
-        pageSize,
-        maxPages,
-        pages,
-        seedConversationId,
-        seedFound,
-        duplicateCount,
-        paginationExercised,
-        continuationAttempted,
-        sameConversationId,
-        continuationMarkerPresent,
-        reopenedLastResponseMarkerPresent,
-        status: 'FAIL',
-        reason: 'continuation_response_incomplete',
-      });
+      return baseReport('FAIL', 'continuation_response_incomplete');
+    }
+
+    continuedReadAttempted = true;
+    const continuedTranscript = await application.getConversation({
+      provider: 'chatgpt',
+      profileId: options.profileId,
+      conversationId: seedConversationId,
+    });
+    continuedMessageCount = continuedTranscript.messages.length;
+    continuedReadMarkerPresent = hasAssistantMarker(continuedTranscript.messages, continuationMarker);
+    if (!continuedReadMarkerPresent) {
+      return baseReport('FAIL', 'continued_transcript_missing_marker');
+    }
+    if (continuedMessageCount <= initialMessageCount) {
+      return baseReport('FAIL', 'continued_transcript_not_extended');
     }
 
     const reopened = await application.getLastResponse({
@@ -271,63 +262,16 @@ export async function runConversationAcceptance(
     reopenedLastResponseMarkerPresent = reopened.responseText.includes(continuationMarker);
 
     if (!reopenedLastResponseMarkerPresent) {
-      return report({
-        options,
-        startedAt,
-        now,
-        pageSize,
-        maxPages,
-        pages,
-        seedConversationId,
-        seedFound,
-        duplicateCount,
-        paginationExercised,
-        continuationAttempted,
-        sameConversationId,
-        continuationMarkerPresent,
-        reopenedLastResponseMarkerPresent,
-        status: 'FAIL',
-        reason: 'reopened_response_mismatch',
-      });
+      return baseReport('FAIL', 'reopened_response_mismatch');
     }
 
-    return report({
-      options,
-      startedAt,
-      now,
-      pageSize,
-      maxPages,
-      pages,
-      seedConversationId,
-      seedFound,
-      duplicateCount,
-      paginationExercised,
-      continuationAttempted,
-      sameConversationId,
-      continuationMarkerPresent,
-      reopenedLastResponseMarkerPresent,
-      status: paginationExercised ? 'PASS' : 'INCONCLUSIVE',
-      ...(paginationExercised ? {} : { reason: 'pagination_not_exercised' as const }),
-    });
+    return baseReport(
+      paginationExercised ? 'PASS' : 'INCONCLUSIVE',
+      paginationExercised ? undefined : 'pagination_not_exercised',
+    );
   } catch (error) {
     return {
-      ...report({
-        options,
-        startedAt,
-        now,
-        pageSize,
-        maxPages,
-        pages,
-        ...(seedConversationId === undefined ? {} : { seedConversationId }),
-        seedFound,
-        duplicateCount,
-        paginationExercised,
-        continuationAttempted,
-        sameConversationId,
-        continuationMarkerPresent,
-        reopenedLastResponseMarkerPresent,
-        status: 'ERROR',
-      }),
+      ...baseReport('ERROR'),
       errorCode: classifyError(error),
     };
   }
@@ -344,6 +288,12 @@ interface ReportInput {
   readonly seedFound: boolean;
   readonly duplicateCount: number;
   readonly paginationExercised: boolean;
+  readonly initialReadAttempted: boolean;
+  readonly initialReadMarkerPresent: boolean;
+  readonly initialMessageCount: number;
+  readonly continuedReadAttempted: boolean;
+  readonly continuedReadMarkerPresent: boolean;
+  readonly continuedMessageCount: number;
   readonly continuationAttempted: boolean;
   readonly sameConversationId: boolean;
   readonly continuationMarkerPresent: boolean;
@@ -368,6 +318,14 @@ function report(input: ReportInput): ConversationAcceptanceReport {
       duplicateCount: input.duplicateCount,
       paginationExercised: input.paginationExercised,
     },
+    reading: {
+      initialAttempted: input.initialReadAttempted,
+      initialMarkerPresent: input.initialReadMarkerPresent,
+      initialMessageCount: input.initialMessageCount,
+      continuedAttempted: input.continuedReadAttempted,
+      continuedMarkerPresent: input.continuedReadMarkerPresent,
+      continuedMessageCount: input.continuedMessageCount,
+    },
     continuation: {
       attempted: input.continuationAttempted,
       sameConversationId: input.sameConversationId,
@@ -379,6 +337,13 @@ function report(input: ReportInput): ConversationAcceptanceReport {
     conclusive: input.status !== 'INCONCLUSIVE',
     ...(input.reason === undefined ? {} : { reason: input.reason }),
   };
+}
+
+function hasAssistantMarker(
+  messages: readonly { readonly role: string; readonly text: string }[],
+  marker: string,
+): boolean {
+  return messages.some((message) => message.role === 'assistant' && message.text.includes(marker));
 }
 
 function classifyError(error: unknown): ExecutionErrorCode | 'INTERNAL_ERROR' {
