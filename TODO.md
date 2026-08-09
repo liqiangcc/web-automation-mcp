@@ -114,16 +114,16 @@
 - [x] Define virtualized/lazy conversation history as ChatGPT adapter semantics over generic browser scroll/DOM-change mechanics
 - [x] Define raw DOM mutation as wake-up only, not semantic pagination progress
 - [x] Define export as `ConversationReaderPort` + transcript renderer + existing `AnswerFilePort`
-- [ ] Add provider-neutral conversation summary/page/message/transcript domain types
-- [ ] Add conversation catalog/reader ports without leaking ChatGPT DOM semantics
+- [x] Add provider-neutral conversation summary/page/message/transcript domain types
+- [x] Add conversation catalog/reader ports without leaking ChatGPT DOM semantics
 - [x] Implement ChatGPT conversation catalog with bounded virtual-scroll discovery and opaque cursor
 - [x] Add `ListConversationsUseCase`
 - [x] Add `web_list_conversations`
 - [x] Add executable `validate:conversations` disposable list -> paginate -> continue -> reopen acceptance runner
 - [ ] Run `npm run validate:conversations -- --profile default` on a real authenticated profile and obtain PASS
-- [ ] Implement ChatGPT conversation reader with explicit `conversationId` and completeness handling
-- [ ] Add `GetConversationUseCase`
-- [ ] Add `web_get_conversation`
+- [x] Implement ChatGPT conversation reader with explicit `conversationId` and bounded completeness handling
+- [x] Add `GetConversationUseCase` with a deterministic transcript response-size guard
+- [x] Add `web_get_conversation`
 - [ ] Add deterministic transcript renderer
 - [ ] Add `ExportConversationUseCase` using `AnswerFilePort`
 - [ ] Add `web_export_conversation_to_file`
