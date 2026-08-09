@@ -1,24 +1,63 @@
-import type { ServerResult } from '@modelcontextprotocol/server';
+import type { CallToolResult } from '@modelcontextprotocol/server';
 
 import type {
   AskRequest,
   AskToFileRequest,
   AskWithFilesRequest,
-  ConversationRequest,
-  LastResponseRequest,
-  SessionStatusRequest,
+  ConversationId,
+  ProfileId,
+  ProviderId,
 } from '../domain/conversation.js';
 import { WebAutomationError } from '../domain/errors.js';
 import type { AttachmentApplicationPort } from '../ports/attachment-application-port.js';
-import type { AutomationApplicationPort } from '../ports/automation-application-port.js';
+import type {
+  AutomationApplicationPort,
+  LastResponseRequest,
+  NewChatRequest,
+  SessionStatusRequest,
+} from '../ports/automation-application-port.js';
 
-export type ToolApplication = AutomationApplicationPort & Partial<AttachmentApplicationPort>;
+export interface WebSessionStatusToolInput {
+  readonly provider: ProviderId;
+  readonly profileId: ProfileId;
+}
+
+export interface WebAskToolInput {
+  readonly provider: ProviderId;
+  readonly profileId: ProfileId;
+  readonly prompt: string;
+  readonly conversationId?: ConversationId;
+}
+
+export interface WebAskWithFilesToolInput extends WebAskToolInput {
+  readonly files: readonly string[];
+}
+
+export interface WebAskToFileToolInput extends WebAskToolInput {
+  readonly outputPath: string;
+  readonly overwrite?: boolean;
+}
+
+export interface WebNewChatToolInput {
+  readonly provider: ProviderId;
+  readonly profileId: ProfileId;
+}
+
+export interface WebGetLastResponseToolInput {
+  readonly provider: ProviderId;
+  readonly profileId: ProfileId;
+  readonly conversationId: ConversationId;
+}
 
 export async function handleWebSessionStatus(
-  application: ToolApplication,
-  request: SessionStatusRequest,
-): Promise<ServerResult> {
-  return handle(async () => {
+  input: WebSessionStatusToolInput,
+  application: AutomationApplicationPort,
+): Promise<CallToolResult> {
+  try {
+    const request: SessionStatusRequest = {
+      provider: input.provider,
+      profileId: input.profileId,
+    };
     const result = await application.sessionStatus(request);
     return {
       content: [{ type: 'text', text: result.status }],
@@ -29,33 +68,22 @@ export async function handleWebSessionStatus(
         status: result.status,
       },
     };
-  });
-}
-
-export async function handleWebNewChat(
-  application: ToolApplication,
-  request: ConversationRequest,
-): Promise<ServerResult> {
-  return handle(async () => {
-    const result = await application.newChat(request);
-    return {
-      content: [{ type: 'text', text: result.status }],
-      structuredContent: {
-        ok: true,
-        provider: result.provider,
-        profileId: result.profileId,
-        conversationId: result.conversationId,
-        status: result.status,
-      },
-    };
-  });
+  } catch (error) {
+    return toMcpToolError(error);
+  }
 }
 
 export async function handleWebAsk(
-  application: ToolApplication,
-  request: AskRequest,
-): Promise<ServerResult> {
-  return handle(async () => {
+  input: WebAskToolInput,
+  application: AutomationApplicationPort,
+): Promise<CallToolResult> {
+  try {
+    const request: AskRequest = {
+      provider: input.provider,
+      profileId: input.profileId,
+      prompt: input.prompt,
+      ...(input.conversationId === undefined ? {} : { conversationId: input.conversationId }),
+    };
     const result = await application.ask(request);
     return {
       content: [{ type: 'text', text: result.responseText }],
@@ -67,21 +95,27 @@ export async function handleWebAsk(
         responseText: result.responseText,
       },
     };
-  });
+  } catch (error) {
+    return toMcpToolError(error);
+  }
 }
 
 export async function handleWebAskWithFiles(
-  application: ToolApplication,
-  request: AskWithFilesRequest,
-): Promise<ServerResult> {
-  return handle(async () => {
+  input: WebAskWithFilesToolInput,
+  application: AutomationApplicationPort & Partial<AttachmentApplicationPort>,
+): Promise<CallToolResult> {
+  try {
     const askWithFiles = application.askWithFiles;
     if (askWithFiles === undefined) {
-      throw new WebAutomationError(
-        'PROVIDER_UNAVAILABLE',
-        'Attachment capability is not available in this runtime.',
-      );
+      throw new Error('Attachment application capability is not configured.');
     }
+    const request: AskWithFilesRequest = {
+      provider: input.provider,
+      profileId: input.profileId,
+      prompt: input.prompt,
+      files: input.files,
+      ...(input.conversationId === undefined ? {} : { conversationId: input.conversationId }),
+    };
     const result = await askWithFiles.call(application, request);
     return {
       content: [{ type: 'text', text: result.responseText }],
@@ -94,27 +128,30 @@ export async function handleWebAskWithFiles(
         fileCount: result.fileCount,
       },
     };
-  });
+  } catch (error) {
+    return toMcpToolError(error);
+  }
 }
 
 export async function handleWebAskToFile(
-  application: ToolApplication,
-  request: AskToFileRequest,
-): Promise<ServerResult> {
-  return handle(async () => {
+  input: WebAskToFileToolInput,
+  application: AutomationApplicationPort,
+): Promise<CallToolResult> {
+  try {
+    const request: AskToFileRequest = {
+      provider: input.provider,
+      profileId: input.profileId,
+      prompt: input.prompt,
+      outputPath: input.outputPath,
+      overwrite: input.overwrite ?? false,
+      ...(input.conversationId === undefined ? {} : { conversationId: input.conversationId }),
+    };
     const result = await application.askToFile(request);
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            provider: result.provider,
-            profileId: result.profileId,
-            conversationId: result.conversationId,
-            filePath: result.filePath,
-            bytesWritten: result.bytesWritten,
-            sha256: result.sha256,
-          }),
+          text: `Saved web AI response to ${result.filePath} (${result.bytesWritten} bytes).`,
         },
       ],
       structuredContent: {
@@ -127,14 +164,46 @@ export async function handleWebAskToFile(
         sha256: result.sha256,
       },
     };
-  });
+  } catch (error) {
+    return toMcpToolError(error);
+  }
+}
+
+export async function handleWebNewChat(
+  input: WebNewChatToolInput,
+  application: AutomationApplicationPort,
+): Promise<CallToolResult> {
+  try {
+    const request: NewChatRequest = {
+      provider: input.provider,
+      profileId: input.profileId,
+    };
+    const result = await application.newChat(request);
+    return {
+      content: [{ type: 'text', text: result.status }],
+      structuredContent: {
+        ok: true,
+        provider: result.provider,
+        profileId: result.profileId,
+        status: result.status,
+        conversationId: null,
+      },
+    };
+  } catch (error) {
+    return toMcpToolError(error);
+  }
 }
 
 export async function handleWebGetLastResponse(
-  application: ToolApplication,
-  request: LastResponseRequest,
-): Promise<ServerResult> {
-  return handle(async () => {
+  input: WebGetLastResponseToolInput,
+  application: AutomationApplicationPort,
+): Promise<CallToolResult> {
+  try {
+    const request: LastResponseRequest = {
+      provider: input.provider,
+      profileId: input.profileId,
+      conversationId: input.conversationId,
+    };
     const result = await application.getLastResponse(request);
     return {
       content: [{ type: 'text', text: result.responseText }],
@@ -146,40 +215,38 @@ export async function handleWebGetLastResponse(
         responseText: result.responseText,
       },
     };
-  });
+  } catch (error) {
+    return toMcpToolError(error);
+  }
 }
 
-async function handle(operation: () => Promise<ServerResult>): Promise<ServerResult> {
-  try {
-    return await operation();
-  } catch (error) {
-    if (error instanceof WebAutomationError) {
-      const message = publicMessageFor(error);
-      return {
-        isError: true,
-        content: [{ type: 'text', text: `${error.code}: ${message}` }],
-        structuredContent: {
-          ok: false,
-          error: {
-            code: error.code,
-            message,
-          },
-        },
-      };
-    }
-
+export function toMcpToolError(error: unknown): CallToolResult {
+  if (error instanceof WebAutomationError) {
+    const message = publicMessageFor(error);
     return {
       isError: true,
-      content: [{ type: 'text', text: 'INTERNAL_ERROR: Unexpected internal error' }],
+      content: [{ type: 'text', text: `${error.code}: ${message}` }],
       structuredContent: {
         ok: false,
         error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Unexpected internal error',
+          code: error.code,
+          message,
         },
       },
     };
   }
+
+  return {
+    isError: true,
+    content: [{ type: 'text', text: 'INTERNAL_ERROR: Unexpected internal error' }],
+    structuredContent: {
+      ok: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Unexpected internal error',
+      },
+    },
+  };
 }
 
 function publicMessageFor(error: WebAutomationError): string {
