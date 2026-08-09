@@ -7,6 +7,8 @@ import type {
   BrowserContextPort,
   BrowserPagePort,
   BrowserPort,
+  DomChangeWaitOptions,
+  DomChangeWaitResult,
   LocatorCandidate,
   PersistentBrowserOptions,
 } from '../../ports/browser-port.js';
@@ -95,6 +97,63 @@ class PlaywrightBrowserPage implements BrowserPagePort {
 
   public async exists(candidate: LocatorCandidate): Promise<boolean> {
     return (await this.locator(candidate).count()) > 0;
+  }
+
+  public async isEditable(candidate: LocatorCandidate): Promise<boolean> {
+    const locator = this.visibleLocator(candidate);
+    return (await locator.count()) > 0 && locator.first().isEditable();
+  }
+
+  public async waitForDomChange(options: DomChangeWaitOptions): Promise<DomChangeWaitResult> {
+    const timeoutMs = Math.max(1, options.timeoutMs);
+    const debounceMs = Math.max(0, options.debounceMs ?? 75);
+
+    return this.page.evaluate(
+      ({ timeoutMs: pageTimeoutMs, debounceMs: pageDebounceMs }) =>
+        new Promise<'changed' | 'timeout'>((resolve) => {
+          let completed = false;
+          let debounceTimer: number | undefined;
+          let timeoutTimer: number | undefined;
+          let observer: MutationObserver | undefined;
+
+          const finish = (result: 'changed' | 'timeout'): void => {
+            if (completed) {
+              return;
+            }
+            completed = true;
+            observer?.disconnect();
+            if (debounceTimer !== undefined) {
+              window.clearTimeout(debounceTimer);
+            }
+            if (timeoutTimer !== undefined) {
+              window.clearTimeout(timeoutTimer);
+            }
+            resolve(result);
+          };
+
+          observer = new MutationObserver(() => {
+            if (debounceTimer !== undefined) {
+              return;
+            }
+            debounceTimer = window.setTimeout(() => finish('changed'), pageDebounceMs);
+          });
+
+          const root = document.documentElement;
+          if (root === null) {
+            finish('timeout');
+            return;
+          }
+
+          observer.observe(root, {
+            subtree: true,
+            childList: true,
+            characterData: true,
+            attributes: true,
+          });
+          timeoutTimer = window.setTimeout(() => finish('timeout'), pageTimeoutMs);
+        }),
+      { timeoutMs, debounceMs },
+    );
   }
 
   public async fill(candidate: LocatorCandidate, value: string): Promise<void> {
