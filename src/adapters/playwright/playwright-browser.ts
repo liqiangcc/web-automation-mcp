@@ -43,6 +43,10 @@ class PlaywrightBrowserPage implements BrowserPagePort {
     await this.page.goto(url, { waitUntil: 'domcontentloaded' });
   }
 
+  public currentUrl(): string {
+    return this.page.url();
+  }
+
   public async isVisible(candidate: LocatorCandidate): Promise<boolean> {
     return this.locator(candidate).first().isVisible();
   }

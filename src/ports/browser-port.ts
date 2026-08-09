@@ -21,6 +21,7 @@ export interface BrowserContextPort {
 
 export interface BrowserPagePort {
   goto(url: string): Promise<void>;
+  currentUrl?(): string;
   isVisible(locator: LocatorCandidate): Promise<boolean>;
   fill(locator: LocatorCandidate, value: string): Promise<void>;
   click(locator: LocatorCandidate): Promise<void>;

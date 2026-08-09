@@ -39,7 +39,9 @@
 - [x] Assistant response baseline tracking
 - [x] Completion detector
 - [x] Plain-text response extractor
-- [ ] Conversation handle persistence
+- [x] Conversation handle persistence
+- [x] Implement `ChatGptProvider` against `ProviderPort`
+- [x] Add generic locked browser session runtime
 
 ## Phase 4 - MCP
 
