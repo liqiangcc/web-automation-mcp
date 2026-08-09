@@ -4,7 +4,7 @@ import type { ConversationCatalogApplicationPort } from '../ports/conversation-c
 import type { ConversationMutationApplicationPort } from '../ports/conversation-mutation-port.js';
 import type { ConversationReaderApplicationPort } from '../ports/conversation-reader-port.js';
 
-export type ConversationCleanupAcceptanceStatus = 'PASS' | 'FAIL' | 'ERROR';
+export type ConversationCleanupAcceptanceStatus = 'PASS' | 'FAIL' | 'INCONCLUSIVE' | 'ERROR';
 
 export interface ConversationCleanupAcceptanceReport {
   readonly version: 1;
@@ -31,10 +31,12 @@ export interface ConversationCleanupAcceptanceReport {
   };
   readonly status: ConversationCleanupAcceptanceStatus;
   readonly passed: boolean;
+  readonly conclusive: boolean;
   readonly errorCode?: ExecutionErrorCode | 'INTERNAL_ERROR';
   readonly reason?:
     | 'seed_response_incomplete'
     | 'preflight_identity_missing'
+    | 'provider_rate_limited'
     | 'target_still_present'
     | 'survivor_missing_after_target_delete'
     | 'survivor_content_changed'
@@ -107,6 +109,7 @@ export async function runConversationCleanupAcceptance(
     },
     status,
     passed: status === 'PASS',
+    conclusive: status !== 'INCONCLUSIVE',
     ...(reason === undefined ? {} : { reason }),
   });
 
@@ -208,6 +211,13 @@ export async function runConversationCleanupAcceptance(
 
     return finish('PASS');
   } catch (error) {
+    if (error instanceof WebAutomationError && error.code === 'PROVIDER_RATE_LIMITED') {
+      return {
+        ...finish('INCONCLUSIVE', 'provider_rate_limited'),
+        errorCode: error.code,
+      };
+    }
+
     return {
       ...finish('ERROR'),
       errorCode: error instanceof WebAutomationError ? error.code : 'INTERNAL_ERROR',
