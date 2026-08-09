@@ -141,12 +141,13 @@
 - [x] Define batch deletion as sequential application-level composition over one semantic mutation port
 - [x] Defer delete-all/date/title/rule-based cleanup until a separate preview/selection model exists
 - [x] Require positive target identity and delete-success verification
-- [ ] Add `ConversationMutationPort` and typed deletion errors
-- [ ] Implement exact ChatGPT single-conversation deletion with positive target verification
-- [ ] Add `DeleteConversationUseCase`
-- [ ] Add destructive `web_delete_conversation` MCP tool
-- [ ] Add duplicate-title/reordered-row/virtualized-list safety fixtures
-- [ ] Validate exact deletion using disposable real conversations and prove unrelated conversations survive
+- [x] Add `ConversationMutationPort` and typed deletion errors
+- [x] Implement exact ChatGPT single-conversation deletion with positive target verification
+- [x] Add `DeleteConversationUseCase`
+- [x] Add destructive `web_delete_conversation` MCP tool
+- [x] Add exact-ID/duplicate-title/missing-target/fail-closed deletion safety fixtures
+- [x] Add executable `validate:cleanup` runner that only creates and deletes disposable test conversations
+- [ ] Validate exact deletion using disposable real conversations and prove unrelated conversations survive (`npm run validate:cleanup -- --profile default`)
 - [ ] Add bounded `web_delete_conversations` only after single deletion proves stable
 - [ ] Add per-ID batch results and global-failure stop policy
 - [ ] Add batch deletion to MCP Inspector smoke coverage
