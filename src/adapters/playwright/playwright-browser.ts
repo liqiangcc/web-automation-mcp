@@ -5,6 +5,7 @@ import type { Browser, BrowserContext, Locator, Page } from 'playwright';
 
 import type {
   BrowserContextPort,
+  BrowserElementSnapshot,
   BrowserPagePort,
   BrowserPort,
   DomChangeWaitOptions,
@@ -75,8 +76,6 @@ class PlaywrightBrowserContext implements BrowserContextPort {
 }
 
 async function disconnectFromBrowser(browser: Browser): Promise<void> {
-  // For connectOverCDP(), close() disconnects this Playwright client while the
-  // externally managed Chrome process and its other pages stay alive.
   await browser.close();
 }
 
@@ -152,6 +151,29 @@ class PlaywrightBrowserPage implements BrowserPagePort {
         }),
       { timeoutMs, debounceMs },
     );
+  }
+
+  public async elementSnapshots(
+    candidate: LocatorCandidate,
+    attributeNames: readonly string[],
+  ): Promise<readonly BrowserElementSnapshot[]> {
+    return this.locator(candidate).evaluateAll(
+      (elements, names) =>
+        elements.map((element) => ({
+          text: element.textContent ?? '',
+          attributes: Object.fromEntries(names.map((name) => [name, element.getAttribute(name)])),
+        })),
+      [...attributeNames],
+    );
+  }
+
+  public async scrollIntoView(candidate: LocatorCandidate, index: number): Promise<void> {
+    const locator = this.locator(candidate);
+    const count = await locator.count();
+    if (!Number.isInteger(index) || index < 0 || index >= count) {
+      throw new RangeError(`Locator index ${index} is outside the current element range.`);
+    }
+    await locator.nth(index).scrollIntoViewIfNeeded();
   }
 
   public async fill(candidate: LocatorCandidate, value: string): Promise<void> {
