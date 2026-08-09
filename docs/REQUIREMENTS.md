@@ -8,6 +8,8 @@ An AI agent sometimes needs to interact with an AI service through its web UI in
 
 Given an existing authenticated browser profile, an MCP client can ask ChatGPT a question and receive the complete generated response without knowing anything about the web page structure.
 
+For local-file workflows, the MCP client should be able to use the same repository-relative paths it already uses in its coding workspace.
+
 ## 3. Functional requirements
 
 ### FR-1 Persistent profile
@@ -95,14 +97,54 @@ A profile must be owned by at most one browser process. V0.1 serializes requests
 
 ### FR-10 Save response to file
 
-The MCP server may save a completed provider response directly to a UTF-8 file without returning the
-full response to the MCP client. File output must:
+The MCP server may save a completed provider response directly to a UTF-8 file without returning the full response to the MCP client.
 
-- stay beneath a configured output root;
+The public `outputPath` is workspace-relative. By default, output is written beneath `<workspace>/mcp-output`.
+
+File output must:
+
+- stay beneath the effective output root;
 - reject absolute paths, traversal and symlink escape;
 - refuse existing files unless overwrite is explicitly enabled;
 - publish through an atomic same-directory operation;
-- return only the conversation id, canonical path, byte count and SHA-256 digest.
+- return only the conversation id, canonical result path, byte count and SHA-256 digest;
+- allow `WEB_AUTOMATION_MCP_OUTPUT_ROOT` as an advanced output-only override.
+
+### FR-11 Workspace-relative path model
+
+Local file paths exposed through MCP must be relative paths.
+
+Normal local Codex behavior uses a stable workspace root resolved when the MCP server starts:
+
+```text
+workspaceRoot = WEB_AUTOMATION_MCP_WORKSPACE ?? startup cwd
+inputRoot = WEB_AUTOMATION_MCP_INPUT_ROOT ?? workspaceRoot
+outputRoot = WEB_AUTOMATION_MCP_OUTPUT_ROOT ?? workspaceRoot/mcp-output
+```
+
+Requirements:
+
+- the normal zero-config workflow should align MCP paths with the Codex session startup working directory;
+- workspace/root selection is server-side policy and cannot be replaced by an MCP tool argument;
+- changing shell cwd after MCP startup must not silently mutate the workspace root;
+- absolute paths and traversal are rejected at the MCP file boundary;
+- canonical paths may exist internally but must remain confined to the effective root;
+- explicit input/output roots remain supported as advanced deployment overrides.
+
+### FR-12 Ask with local files
+
+The MCP server may upload one or more local files together with a prompt through the provider UI.
+
+Input files must:
+
+- be specified as workspace-relative paths;
+- resolve beneath the effective input root;
+- reject absolute paths, traversal and symlink escape;
+- resolve to regular files;
+- obey local count and size safety limits;
+- never expose canonical host input paths in MCP results, logs or diagnostics.
+
+The first implementation is atomic `web_ask_with_files`; V0.1 does not expose standalone persistent upload handles.
 
 ## 4. Non-functional requirements
 
@@ -116,18 +158,25 @@ Every execution gets a request id and structured lifecycle events:
 
 `acquire_profile -> probe_session -> open_conversation -> resolve_prompt_input -> submit -> wait_generation -> extract -> release`
 
+File-enabled operations may additionally include safe semantic stages such as local-file resolution and attachment upload, but must not log sensitive file paths or contents.
+
 ### Security
 
 - Profile directories are outside the repository by default.
 - `.gitignore` excludes all auth/profile state.
 - MCP tools never return cookies, authorization headers or tokens.
+- MCP callers cannot supply arbitrary absolute host paths.
+- Workspace/input/output roots are server-side configuration, not request-controlled roots.
 - File-output tools never include the complete provider response in MCP results or diagnostics.
+- File-input tools never expose canonical host input paths in MCP results or diagnostics.
 - Logs redact prompt/response content when configured.
 - Diagnostic screenshots are opt-in and stored locally.
 
 ### Testability
 
-Business logic must be testable with fake `BrowserPort` and fake `ProviderPort`; unit tests must not require ChatGPT or a real browser.
+Business logic must be testable with fake `BrowserPort` and fake provider ports; unit tests must not require ChatGPT or a real browser.
+
+Workspace-root precedence and root-confinement behavior must be testable without Codex itself.
 
 ## 5. Deferred requirements
 
@@ -138,3 +187,5 @@ Business logic must be testable with fake `BrowserPort` and fake `ProviderPort`;
 - Multi-profile concurrency
 - Browser pool
 - Remote browser service
+- Per-request workspace switching
+- Arbitrary unrestricted host-file access
