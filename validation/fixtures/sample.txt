@@ -1,0 +1,2 @@
+WEB_AUTOMATION_VALIDATION_TEXT_TOKEN=ALPHA-7429
+This file is intentionally small and contains no secrets.
