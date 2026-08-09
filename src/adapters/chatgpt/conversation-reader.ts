@@ -5,7 +5,11 @@ import type {
   ConversationTranscript,
 } from '../../domain/conversation.js';
 import { WebAutomationError } from '../../domain/errors.js';
-import type { BrowserElementSnapshot, BrowserPagePort } from '../../ports/browser-port.js';
+import type {
+  BrowserElementSnapshot,
+  BrowserPagePort,
+  LocatorCandidate,
+} from '../../ports/browser-port.js';
 import { ChatGptConversationNavigator } from './conversation-navigator.js';
 import { ChatGptTargetResolver } from './target-resolver.js';
 
@@ -26,16 +30,22 @@ export class ChatGptConversationReader {
     }
 
     const elementSnapshots = this.page.elementSnapshots;
-    if (elementSnapshots === undefined) {
+    const scrollIntoView = this.page.scrollIntoView;
+    const waitForDomChange = this.page.waitForDomChange;
+    if (
+      elementSnapshots === undefined ||
+      scrollIntoView === undefined ||
+      waitForDomChange === undefined
+    ) {
       throw new WebAutomationError(
         'PROVIDER_CHANGED',
-        'Browser adapter does not expose the generic mechanics required for conversation reading.',
+        'Browser adapter does not expose the generic mechanics required for complete conversation reading.',
       );
     }
 
     let locator = await new ChatGptTargetResolver(this.page).findExisting('conversation-message');
     if (locator === undefined) {
-      locator = await waitForMessageTarget(this.page);
+      locator = await waitForMessageTarget(this.page, waitForDomChange);
     }
     if (locator === undefined) {
       throw new WebAutomationError(
@@ -68,13 +78,13 @@ export class ChatGptConversationReader {
         };
       }
 
-      await tryScrollToFirst(this.page, locator, snapshots.length);
-      const waitForDomChange = this.page.waitForDomChange;
-      if (waitForDomChange === undefined) {
-        if (latestMessages.length > 0) {
-          return { conversationId, messages: latestMessages };
+      if (snapshots.length > 0) {
+        try {
+          await scrollIntoView.call(this.page, locator, 0);
+        } catch {
+          // A provider may replace message rows while older content is materializing.
+          // The next semantic snapshot determines whether transcript progress occurred.
         }
-        break;
       }
       await waitForDomChange.call(this.page, { timeoutMs: DOM_WAIT_MS, debounceMs: 75 });
     }
@@ -93,12 +103,10 @@ export class ChatGptConversationReader {
   }
 }
 
-async function waitForMessageTarget(page: BrowserPagePort) {
-  const waitForDomChange = page.waitForDomChange;
-  if (waitForDomChange === undefined) {
-    return undefined;
-  }
-
+async function waitForMessageTarget(
+  page: BrowserPagePort,
+  waitForDomChange: NonNullable<BrowserPagePort['waitForDomChange']>,
+): Promise<LocatorCandidate | undefined> {
   const resolver = new ChatGptTargetResolver(page);
   for (let round = 0; round < 3; round += 1) {
     await waitForDomChange.call(page, { timeoutMs: DOM_WAIT_MS, debounceMs: 75 });
@@ -108,22 +116,6 @@ async function waitForMessageTarget(page: BrowserPagePort) {
     }
   }
   return undefined;
-}
-
-async function tryScrollToFirst(
-  page: BrowserPagePort,
-  locator: Parameters<NonNullable<BrowserPagePort['scrollIntoView']>>[0],
-  count: number,
-): Promise<void> {
-  if (count === 0 || page.scrollIntoView === undefined) {
-    return;
-  }
-  try {
-    await page.scrollIntoView(locator, 0);
-  } catch {
-    // A provider may replace message rows while older content is materializing.
-    // The next semantic snapshot determines whether transcript progress occurred.
-  }
 }
 
 function snapshotsToMessages(
