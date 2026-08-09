@@ -238,13 +238,32 @@ function summarizeFast(
     .sort((left, right) => left - right);
   const requiredFastSamples = Math.max(1, Math.ceil(samples.length * 0.8));
   const passedSamples = samples.filter((sample) => sample.status === 'PASS').length;
-  const p95LatencyMs = percentile(latencies, 0.95);
   const conclusive = unavailableMetadata === 0;
+
+  if (latencies.length === 0) {
+    return {
+      requested: samples.length,
+      passedSamples,
+      fastSamples,
+      fallbackSamples,
+      unavailableMetadata,
+      latencySamples: 0,
+      maxAllowedLatencyMs,
+      requiredFastSamples,
+      passed: false,
+      conclusive,
+    };
+  }
+
+  const p95LatencyMs = percentile(latencies, 0.95);
+  const maxLatencyMs = latencies[latencies.length - 1];
+  if (p95LatencyMs === undefined || maxLatencyMs === undefined) {
+    throw new WebAutomationError('INTERNAL_ERROR' as never, 'Latency summary invariant failed.');
+  }
   const passed =
     conclusive &&
     fastSamples >= requiredFastSamples &&
     passedSamples >= requiredFastSamples &&
-    p95LatencyMs !== undefined &&
     p95LatencyMs <= maxAllowedLatencyMs &&
     samples.every((sample) => sample.status !== 'ERROR');
 
@@ -255,15 +274,11 @@ function summarizeFast(
     fallbackSamples,
     unavailableMetadata,
     latencySamples: latencies.length,
-    ...(latencies.length === 0
-      ? {}
-      : {
-          averageLatencyMs: Math.round(
-            latencies.reduce((sum, value) => sum + value, 0) / latencies.length,
-          ),
-          p95LatencyMs,
-          maxLatencyMs: latencies[latencies.length - 1],
-        }),
+    averageLatencyMs: Math.round(
+      latencies.reduce((sum, value) => sum + value, 0) / latencies.length,
+    ),
+    p95LatencyMs,
+    maxLatencyMs,
     maxAllowedLatencyMs,
     requiredFastSamples,
     passed,
