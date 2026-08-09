@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AskRequest, AskResult } from '../../src/domain/conversation.js';
+import type {
+  AskRequest,
+  AskResult,
+  AskToFileRequest,
+  AskToFileResult,
+} from '../../src/domain/conversation.js';
 import type {
   AutomationApplicationPort,
   LastResponseRequest,
@@ -28,8 +33,15 @@ class FakeCompletionApplication implements AutomationApplicationPort {
     };
   }
 
-  public async askToFile() {
-    throw new Error('unused');
+  public async askToFile(request: AskToFileRequest): Promise<AskToFileResult> {
+    return {
+      provider: request.provider,
+      profileId: request.profileId,
+      conversationId: 'unused',
+      filePath: request.outputPath,
+      bytesWritten: 0,
+      sha256: '',
+    };
   }
 
   public async sessionStatus(request: SessionStatusRequest) {
