@@ -4,7 +4,9 @@ import { z } from 'zod';
 import type { AttachmentApplicationPort } from '../ports/attachment-application-port.js';
 import type { AutomationApplicationPort } from '../ports/automation-application-port.js';
 import type { ConversationCatalogApplicationPort } from '../ports/conversation-catalog-port.js';
+import type { ConversationExportApplicationPort } from '../ports/conversation-export-port.js';
 import type { ConversationReaderApplicationPort } from '../ports/conversation-reader-port.js';
+import { handleWebExportConversationToFile } from './conversation-export-tool-handler.js';
 import {
   handleWebAsk,
   handleWebAskToFile,
@@ -28,7 +30,8 @@ export function createMcpServer(
   application: AutomationApplicationPort &
     Partial<AttachmentApplicationPort> &
     Partial<ConversationCatalogApplicationPort> &
-    Partial<ConversationReaderApplicationPort>,
+    Partial<ConversationReaderApplicationPort> &
+    Partial<ConversationExportApplicationPort>,
 ): McpServer {
   const server = new McpServer({
     name: 'web-automation-mcp',
@@ -121,6 +124,45 @@ export function createMcpServer(
           provider: provider ?? 'chatgpt',
           profileId,
           conversationId,
+        },
+        application,
+      ),
+  );
+
+  server.registerTool(
+    'web_export_conversation_to_file',
+    {
+      title: 'Export web AI conversation to file',
+      description:
+        'Read one explicit provider conversation, render a deterministic Markdown transcript, and save it beneath the configured output root without returning the full transcript to the MCP client.',
+      inputSchema: z.object({
+        provider: ProviderSchema.describe('Web provider. ChatGPT is the only provider in v0.1.'),
+        profileId: ProfileIdSchema,
+        conversationId: ConversationIdSchema,
+        outputPath: z
+          .string()
+          .min(1)
+          .max(4096)
+          .describe('Relative transcript output path inside the configured output root.'),
+        overwrite: z
+          .boolean()
+          .optional()
+          .describe('Replace an existing output file. Defaults to false.'),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+      },
+    },
+    async ({ provider, profileId, conversationId, outputPath, overwrite }) =>
+      handleWebExportConversationToFile(
+        {
+          provider: provider ?? 'chatgpt',
+          profileId,
+          conversationId,
+          outputPath,
+          ...(overwrite === undefined ? {} : { overwrite }),
         },
         application,
       ),
