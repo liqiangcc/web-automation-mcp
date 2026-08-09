@@ -56,9 +56,9 @@
 - [x] Structured request lifecycle logs
 - [x] Diagnostics bundle
 - [ ] 30-run validation matrix
-- [ ] Failure classification tests
-- [ ] Locator fallback test fixture
-- [ ] Security/redaction tests
+- [x] Failure classification tests
+- [x] Locator fallback test fixture
+- [x] Security/redaction tests
 
 ## Phase 6 - Only after V0.1 proves stable
 
