@@ -45,9 +45,9 @@
 
 ## Phase 4 - MCP
 
-- [ ] `web_session_status`
+- [x] `web_session_status`
 - [ ] `web_new_chat`
-- [ ] `web_ask`
+- [x] `web_ask`
 - [ ] `web_get_last_response`
 - [ ] MCP Inspector smoke test
 
