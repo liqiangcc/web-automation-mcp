@@ -43,6 +43,7 @@ export interface BrowserPagePort {
     attributeNames: readonly string[],
   ): Promise<readonly BrowserElementSnapshot[]>;
   scrollIntoView?(locator: LocatorCandidate, index: number): Promise<void>;
+  hover?(locator: LocatorCandidate): Promise<void>;
   fill(locator: LocatorCandidate, value: string): Promise<void>;
   click(locator: LocatorCandidate): Promise<void>;
   press(locator: LocatorCandidate, key: string): Promise<void>;
