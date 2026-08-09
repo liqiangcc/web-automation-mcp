@@ -69,8 +69,24 @@
 - [x] Add `web_ask_with_files`
 - [x] Add path confinement, upload and MCP redaction unit tests
 - [x] Add `web_ask_with_files` to MCP Inspector smoke test
+
+### Workspace-relative path model
+
+- [x] Define Codex startup cwd as the default MCP workspace concept
+- [x] Define root precedence: `WORKSPACE`, then optional input/output overrides
+- [x] Keep MCP file arguments relative and forbid request-controlled workspace roots
+- [ ] Add stable workspace-root resolver at runtime startup
+- [ ] Default input root to workspace root
+- [ ] Default output root to `<workspace>/mcp-output`
+- [ ] Preserve `WEB_AUTOMATION_MCP_INPUT_ROOT` and `WEB_AUTOMATION_MCP_OUTPUT_ROOT` as advanced overrides
+- [ ] Add workspace/root precedence and compatibility tests
+- [ ] Update local Codex registration/testing examples for zero-config workspace-relative paths
+
+### Real validation
+
 - [ ] Validate text/PDF or image/multiple-file upload with a real authenticated local profile
 - [ ] Validate attachment flow through shared-CDP Chrome mode
+- [ ] Validate starting Codex from two different repositories gives the expected workspace-relative behavior after MCP restart
 
 ## Phase 6 - Only after V0.1 proves stable
 
