@@ -3,6 +3,17 @@ import type { ResponseCompletionMetadata } from './execution.js';
 export type ProviderId = 'chatgpt';
 export type ProfileId = string;
 export type ConversationId = string;
+export type ConversationCursor = string;
+
+export interface ConversationSummary {
+  readonly conversationId: ConversationId;
+  readonly title: string;
+}
+
+export interface ConversationPage {
+  readonly conversations: readonly ConversationSummary[];
+  readonly nextCursor?: ConversationCursor;
+}
 
 export interface AskRequest {
   readonly provider: ProviderId;
