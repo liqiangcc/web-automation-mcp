@@ -21,6 +21,7 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 7. **A browser profile is treated as a secret-bearing local asset.**
 8. **Local paths are workspace-relative at the MCP boundary.**
 9. **Response completion should be event-driven by browser change notifications, while completion meaning remains provider-semantic.**
+10. **Conversation identity is explicit; browser active-tab state is never an application contract.**
 
 ## V0.1 scope
 
@@ -36,6 +37,8 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 - Upload restricted local files with a prompt
 - Wait for a complete response
 - Return text plus execution metadata
+- Discover recent conversations with bounded opaque-cursor pagination
+- Read one explicit conversation as an ordered semantic transcript
 - Save a completed response directly to a restricted local file without returning the full text
 - Detect authentication loss and provider-UI mismatch
 - Diagnostic artifacts on failure
@@ -53,15 +56,20 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 - Arbitrary absolute-path host filesystem access
 - Per-request workspace switching
 - Reverse engineering ChatGPT private streaming/network protocols
+- Process-global or tab-global active conversation state
 
-## Proposed MCP surface
+## Current MCP surface
 
 - `web_session_status(profileId)`
+- `web_list_conversations(profileId, limit?, cursor?)`
+- `web_get_conversation(profileId, conversationId)`
 - `web_new_chat(profileId)`
 - `web_ask(profileId, prompt, conversationId?)`
 - `web_ask_with_files(profileId, prompt, files[], conversationId?)`
 - `web_ask_to_file(profileId, prompt, outputPath, conversationId?, overwrite?)`
 - `web_get_last_response(profileId, conversationId)`
+
+`web_list_conversations` returns lightweight conversation IDs/titles only. `web_get_conversation` returns ordered semantic message bodies for one explicit ID and refuses to silently truncate transcripts that exceed its deterministic response-size guard.
 
 ## Workspace-relative paths
 
@@ -113,6 +121,28 @@ Raw DOM mutations only wake the detector; they do not count as generation progre
 
 See `docs/RESPONSE_COMPLETION.md` for the design and implementation acceptance criteria.
 
+## Conversation discovery and reading
+
+Conversation operations preserve explicit identity:
+
+```text
+web_list_conversations
+  -> conversationId
+  -> web_get_conversation(conversationId)
+  -> web_ask(conversationId, prompt)
+  -> web_get_conversation(conversationId)
+```
+
+The ChatGPT adapter owns sidebar/message semantics. Playwright exposes only generic DOM snapshot, scroll and DOM-change mechanics. Application/MCP never depend on ChatGPT selectors or mutable active-tab state.
+
+Run the executable real-session acceptance flow from an authenticated local profile:
+
+```bash
+npm run validate:conversations -- --profile default
+```
+
+The acceptance flow creates one disposable test conversation, discovers it through pagination, reads the full semantic transcript, continues the same explicit conversation ID, reads it again to prove the transcript extended, and finally verifies the last response. A fixture/CI pass is not a substitute for this authenticated browser run.
+
 ## Local authentication and persistence checks
 
 Initial login is a local maintenance operation rather than an MCP runtime action. Credentials stay inside the dedicated browser profile.
@@ -140,6 +170,8 @@ The profile is stored under `~/.web-automation-mcp` by default and is protected 
 - `docs/REQUIREMENTS.md` - product and reliability requirements
 - `docs/ARCHITECTURE.md` - boundaries and dependency rules
 - `docs/RESPONSE_COMPLETION.md` - event-driven response-completion design, state machine and timeout semantics
+- `docs/CONVERSATIONS.md` - conversation discovery, reading, continuation and export boundaries
+- `docs/CONVERSATION_CLEANUP.md` - destructive conversation cleanup safety design
 - `docs/WORKSPACE_PATHS.md` - Codex workspace-relative path contract and root precedence
 - `docs/FILE_INPUT_AND_UPLOAD.md` - restricted local input and provider attachment design
 - `docs/FEASIBILITY.md` - feasibility evidence, risks and go/no-go criteria
