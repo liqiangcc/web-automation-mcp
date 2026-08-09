@@ -5,7 +5,9 @@ import type { AttachmentApplicationPort } from '../ports/attachment-application-
 import type { AutomationApplicationPort } from '../ports/automation-application-port.js';
 import type { ConversationCatalogApplicationPort } from '../ports/conversation-catalog-port.js';
 import type { ConversationExportApplicationPort } from '../ports/conversation-export-port.js';
+import type { ConversationMutationApplicationPort } from '../ports/conversation-mutation-port.js';
 import type { ConversationReaderApplicationPort } from '../ports/conversation-reader-port.js';
+import { handleWebDeleteConversation } from './conversation-delete-tool-handler.js';
 import { handleWebExportConversationToFile } from './conversation-export-tool-handler.js';
 import {
   handleWebAsk,
@@ -31,7 +33,8 @@ export function createMcpServer(
     Partial<AttachmentApplicationPort> &
     Partial<ConversationCatalogApplicationPort> &
     Partial<ConversationReaderApplicationPort> &
-    Partial<ConversationExportApplicationPort>,
+    Partial<ConversationExportApplicationPort> &
+    Partial<ConversationMutationApplicationPort>,
 ): McpServer {
   const server = new McpServer({
     name: 'web-automation-mcp',
@@ -163,6 +166,34 @@ export function createMcpServer(
           conversationId,
           outputPath,
           ...(overwrite === undefined ? {} : { overwrite }),
+        },
+        application,
+      ),
+  );
+
+  server.registerTool(
+    'web_delete_conversation',
+    {
+      title: 'Delete one web AI conversation',
+      description:
+        'Permanently delete exactly one explicit provider conversation. The target must be supplied as conversationId; the tool never derives a destructive target from the active browser state or title.',
+      inputSchema: z.object({
+        provider: ProviderSchema.describe('Web provider. ChatGPT is the only provider in v0.1.'),
+        profileId: ProfileIdSchema,
+        conversationId: ConversationIdSchema,
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+      },
+    },
+    async ({ provider, profileId, conversationId }) =>
+      handleWebDeleteConversation(
+        {
+          provider: provider ?? 'chatgpt',
+          profileId,
+          conversationId,
         },
         application,
       ),
