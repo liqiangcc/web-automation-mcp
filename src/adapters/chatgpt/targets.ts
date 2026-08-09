@@ -8,7 +8,9 @@ export type ChatGptSemanticTarget =
   | 'assistant-response'
   | 'generation-stop'
   | 'conversation-link'
-  | 'conversation-message';
+  | 'conversation-message'
+  | 'conversation-delete-action'
+  | 'conversation-delete-confirm';
 
 export type ChatGptTargetRegistry = Readonly<
   Partial<Record<ChatGptSemanticTarget, readonly LocatorCandidate[]>>
@@ -46,4 +48,12 @@ export const CHATGPT_TARGETS = {
   ],
   'conversation-link': [{ kind: 'css', value: 'a[href^="/c/"]' }],
   'conversation-message': [{ kind: 'css', value: '[data-message-author-role]' }],
+  'conversation-delete-action': [
+    { kind: 'role', role: 'menuitem', name: 'Delete' },
+    { kind: 'role', role: 'button', name: 'Delete' },
+  ],
+  'conversation-delete-confirm': [
+    { kind: 'role', role: 'button', name: 'Delete' },
+    { kind: 'testId', value: 'confirm-delete-conversation' },
+  ],
 } satisfies Readonly<Record<ChatGptSemanticTarget, readonly LocatorCandidate[]>>;
