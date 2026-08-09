@@ -176,6 +176,10 @@ class PlaywrightBrowserPage implements BrowserPagePort {
     await locator.nth(index).scrollIntoViewIfNeeded();
   }
 
+  public async hover(candidate: LocatorCandidate): Promise<void> {
+    await this.visibleLocator(candidate).first().hover();
+  }
+
   public async fill(candidate: LocatorCandidate, value: string): Promise<void> {
     await this.visibleLocator(candidate).first().fill(value);
   }
