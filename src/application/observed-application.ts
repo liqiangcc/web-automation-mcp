@@ -33,6 +33,11 @@ import type {
   ListConversationsResult,
 } from '../ports/conversation-catalog-port.js';
 import type {
+  ConversationExportApplicationPort,
+  ExportConversationRequest,
+  ExportConversationResult,
+} from '../ports/conversation-export-port.js';
+import type {
   ConversationReaderApplicationPort,
   GetConversationRequest,
   GetConversationResult,
@@ -51,7 +56,8 @@ export class ObservedAutomationApplication
     AutomationApplicationPort,
     AttachmentApplicationPort,
     ConversationCatalogApplicationPort,
-    ConversationReaderApplicationPort
+    ConversationReaderApplicationPort,
+    ConversationExportApplicationPort
 {
   private readonly createRequestId: () => string;
   private readonly now: () => Date;
@@ -60,7 +66,8 @@ export class ObservedAutomationApplication
     private readonly inner: AutomationApplicationPort &
       Partial<AttachmentApplicationPort> &
       Partial<ConversationCatalogApplicationPort> &
-      Partial<ConversationReaderApplicationPort>,
+      Partial<ConversationReaderApplicationPort> &
+      Partial<ConversationExportApplicationPort>,
     private readonly dependencies: ObservedAutomationApplicationDependencies,
   ) {
     this.createRequestId = dependencies.createRequestId ?? randomUUID;
@@ -130,6 +137,18 @@ export class ObservedAutomationApplication
         throw new Error('Conversation reader capability is not configured.');
       }
       return getConversation.call(this.inner, request);
+    });
+  }
+
+  public exportConversationToFile(
+    request: ExportConversationRequest,
+  ): Promise<ExportConversationResult> {
+    return this.observe('export_conversation', contextFor(request), async () => {
+      const exportConversationToFile = this.inner.exportConversationToFile;
+      if (exportConversationToFile === undefined) {
+        throw new Error('Conversation export capability is not configured.');
+      }
+      return exportConversationToFile.call(this.inner, request);
     });
   }
 
