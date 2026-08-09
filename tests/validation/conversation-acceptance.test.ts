@@ -17,6 +17,10 @@ import type {
   ListConversationsRequest,
   ListConversationsResult,
 } from '../../src/ports/conversation-catalog-port.js';
+import type {
+  ConversationReaderApplicationPort,
+  GetConversationRequest,
+} from '../../src/ports/conversation-reader-port.js';
 import { runConversationAcceptance } from '../../src/validation/conversation-acceptance.js';
 
 type PageFixture = readonly {
@@ -25,8 +29,12 @@ type PageFixture = readonly {
 }[];
 
 class FakeConversationApplication
-  implements AutomationApplicationPort, ConversationCatalogApplicationPort
+  implements
+    AutomationApplicationPort,
+    ConversationCatalogApplicationPort,
+    ConversationReaderApplicationPort
 {
+  private seedMarker = '';
   private continuationMarker = '';
 
   public constructor(private readonly pages: readonly PageFixture[]) {}
@@ -34,6 +42,7 @@ class FakeConversationApplication
   public async ask(request: AskRequest): Promise<AskResult> {
     const marker = request.prompt.match(/WEB_AUTOMATION_CONVERSATION_[A-Z]+::\d+/)?.[0] ?? '';
     if (request.conversationId === undefined) {
+      this.seedMarker = marker;
       return {
         provider: request.provider,
         profileId: request.profileId,
@@ -83,6 +92,25 @@ class FakeConversationApplication
     };
   }
 
+  public async getConversation(request: GetConversationRequest) {
+    const messages = [
+      { role: 'user' as const, text: `Seed request ${this.seedMarker}` },
+      { role: 'assistant' as const, text: this.seedMarker },
+    ];
+    if (this.continuationMarker.length > 0) {
+      messages.push(
+        { role: 'user' as const, text: `Continue request ${this.continuationMarker}` },
+        { role: 'assistant' as const, text: this.continuationMarker },
+      );
+    }
+    return {
+      provider: request.provider,
+      profileId: request.profileId,
+      conversationId: request.conversationId,
+      messages,
+    };
+  }
+
   public async listConversations(
     request: ListConversationsRequest,
   ): Promise<ListConversationsResult> {
@@ -99,7 +127,7 @@ class FakeConversationApplication
 }
 
 describe('conversation acceptance', () => {
-  it('passes when pagination discovers the disposable seed and continuation reopens correctly', async () => {
+  it('passes when pagination, full reading, continuation and reopen all agree', async () => {
     let clock = 0;
     const application = new FakeConversationApplication([
       [
@@ -126,6 +154,14 @@ describe('conversation acceptance', () => {
       duplicateCount: 0,
       paginationExercised: true,
     });
+    expect(report.reading).toEqual({
+      initialAttempted: true,
+      initialMarkerPresent: true,
+      initialMessageCount: 2,
+      continuedAttempted: true,
+      continuedMarkerPresent: true,
+      continuedMessageCount: 4,
+    });
     expect(report.continuation).toEqual({
       attempted: true,
       sameConversationId: true,
@@ -135,7 +171,7 @@ describe('conversation acceptance', () => {
     expect(report.createdConversationIds).toEqual(['seed-conversation']);
   });
 
-  it('is inconclusive when discovery works but there are not enough conversations for a cursor page', async () => {
+  it('is inconclusive when reading and continuation work but there is no second cursor page', async () => {
     let clock = 0;
     const application = new FakeConversationApplication([
       [{ conversationId: 'seed-conversation', title: 'Seed' }],
@@ -150,10 +186,11 @@ describe('conversation acceptance', () => {
     expect(report.passed).toBe(false);
     expect(report.conclusive).toBe(false);
     expect(report.reason).toBe('pagination_not_exercised');
+    expect(report.reading.continuedMarkerPresent).toBe(true);
     expect(report.continuation.reopenedLastResponseMarkerPresent).toBe(true);
   });
 
-  it('fails before continuation when pagination returns duplicate conversation ids', async () => {
+  it('fails before reading when pagination returns duplicate conversation ids', async () => {
     let clock = 0;
     const application = new FakeConversationApplication([
       [
@@ -176,6 +213,7 @@ describe('conversation acceptance', () => {
     expect(report.status).toBe('FAIL');
     expect(report.reason).toBe('duplicate_conversation_ids');
     expect(report.discovery.duplicateCount).toBe(1);
+    expect(report.reading.initialAttempted).toBe(false);
     expect(report.continuation.attempted).toBe(false);
   });
 });
