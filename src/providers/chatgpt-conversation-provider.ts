@@ -5,6 +5,7 @@ import {
 import { requireAuthenticatedChatGptSession } from '../adapters/chatgpt/authentication.js';
 import { ChatGptConversationCatalog } from '../adapters/chatgpt/conversation-catalog.js';
 import { ChatGptConversationNavigator } from '../adapters/chatgpt/conversation-navigator.js';
+import { ChatGptConversationReader } from '../adapters/chatgpt/conversation-reader.js';
 import type { ProfileId } from '../domain/conversation.js';
 import { WebAutomationError } from '../domain/errors.js';
 import type { BrowserSessionPort } from '../ports/browser-session-port.js';
@@ -13,6 +14,10 @@ import type {
   ConversationCatalogPort,
 } from '../ports/conversation-catalog-port.js';
 import type {
+  ConversationReaderInput,
+  ConversationReaderPort,
+} from '../ports/conversation-reader-port.js';
+import type {
   ProviderConversationPort,
   ProviderLastResponseInput,
   ProviderLastResponseOutput,
@@ -20,7 +25,7 @@ import type {
 } from '../ports/provider-conversation-port.js';
 
 export class ChatGptConversationProvider
-  implements ProviderConversationPort, ConversationCatalogPort
+  implements ProviderConversationPort, ConversationCatalogPort, ConversationReaderPort
 {
   public readonly id = 'chatgpt' as const;
 
@@ -32,6 +37,18 @@ export class ChatGptConversationProvider
       await new ChatGptConversationNavigator(session.page).open();
       await requireAuthenticatedChatGptSession(session.page);
       return await new ChatGptConversationCatalog(session.page).list(input);
+    } finally {
+      await session.close();
+    }
+  }
+
+  public async get(input: ConversationReaderInput) {
+    const session = await this.sessions.acquire(this.id, input.profileId);
+    try {
+      const navigator = new ChatGptConversationNavigator(session.page);
+      await navigator.open(input.conversationId);
+      await requireAuthenticatedChatGptSession(session.page);
+      return await new ChatGptConversationReader(session.page).read(input.conversationId);
     } finally {
       await session.close();
     }
