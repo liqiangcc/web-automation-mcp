@@ -5,6 +5,7 @@ import type {
   BrowserElementSnapshot,
   BrowserPagePort,
   DomChangeWaitResult,
+  LocatorCandidate,
 } from '../../../src/ports/browser-port.js';
 
 class FakePage implements BrowserPagePort {
@@ -49,6 +50,13 @@ function item(id: string, title: string): BrowserElementSnapshot {
   };
 }
 
+function absoluteItem(id: string, title: string): BrowserElementSnapshot {
+  return {
+    text: title,
+    attributes: { href: `https://chatgpt.com/c/${id}` },
+  };
+}
+
 describe('ChatGptConversationCatalog', () => {
   it('deduplicates virtualized rows and returns an opaque resumable cursor', async () => {
     const firstPage = new FakePage([
@@ -83,6 +91,19 @@ describe('ChatGptConversationCatalog', () => {
 
     expect(second.conversations).toEqual([{ conversationId: 'c3', title: 'Third' }]);
     expect(second.nextCursor).toBeUndefined();
+  });
+
+  it('accepts absolute ChatGPT conversation hrefs', async () => {
+    const page = new FakePage([[absoluteItem('absolute-id', 'Absolute')]]);
+
+    const result = await new ChatGptConversationCatalog(page).list({
+      profileId: 'default',
+      limit: 20,
+    });
+
+    expect(result.conversations).toEqual([
+      { conversationId: 'absolute-id', title: 'Absolute' },
+    ]);
   });
 
   it('does not treat repeated DOM wakeups without new ids as semantic progress', async () => {
@@ -156,4 +177,72 @@ describe('ChatGptConversationCatalog', () => {
       }),
     ).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
   });
+
+  it('does not report an empty list when an authenticated page exposes no verifiable history', async () => {
+    const page = new MissingHistoryPage('HEALTHY');
+
+    await expect(
+      new ChatGptConversationCatalog(page).list({ profileId: 'default', limit: 20 }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_CHANGED' });
+  });
+
+  it('classifies rate limiting instead of reporting an empty conversation list', async () => {
+    const page = new MissingHistoryPage('RATE_LIMITED');
+
+    await expect(
+      new ChatGptConversationCatalog(page).list({ profileId: 'default', limit: 20 }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_RATE_LIMITED' });
+  });
+
+  it('fails closed when a located history selector yields no valid identities', async () => {
+    const page = new FakePage([[]]);
+
+    await expect(
+      new ChatGptConversationCatalog(page).list({ profileId: 'default', limit: 20 }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_CHANGED' });
+  });
 });
+
+class MissingHistoryPage implements BrowserPagePort {
+  public constructor(private readonly state: 'HEALTHY' | 'RATE_LIMITED') {}
+
+  public async goto(): Promise<void> {}
+
+  public async isVisible(locator: LocatorCandidate): Promise<boolean> {
+    return (
+      this.state === 'HEALTHY' &&
+      locator.kind === 'role' &&
+      locator.role === 'textbox' &&
+      locator.name === 'Message ChatGPT'
+    );
+  }
+
+  public async exists(): Promise<boolean> {
+    return false;
+  }
+
+  public async elementSnapshots(): Promise<readonly BrowserElementSnapshot[]> {
+    return [];
+  }
+
+  public async scrollIntoView(): Promise<void> {}
+
+  public async waitForDomChange(): Promise<DomChangeWaitResult> {
+    return 'timeout';
+  }
+
+  public async textContents(locator: LocatorCandidate): Promise<readonly string[]> {
+    if (
+      this.state === 'RATE_LIMITED' &&
+      locator.kind === 'css' &&
+      locator.value.includes('[role="alert"]')
+    ) {
+      return ['Too many requests. Try again later.'];
+    }
+    return [];
+  }
+
+  public async fill(): Promise<void> {}
+  public async click(): Promise<void> {}
+  public async press(): Promise<void> {}
+}
