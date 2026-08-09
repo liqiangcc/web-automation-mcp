@@ -78,8 +78,8 @@
 - [x] Add low-frequency watchdog only as missed-event/page-lifecycle resilience fallback
 - [x] Add unit tests proving unrelated DOM wakeups do not reset semantic idle time
 - [x] Add unit tests for fast completion, fallback completion, settle cancellation, stall and absolute timeout
-- [ ] Add completion-path/latency metadata to lifecycle observability without logging response content
-- [ ] Extend live validation report with completion latency/path metrics
+- [x] Add completion-path/latency metadata to lifecycle observability without logging response content
+- [x] Extend live validation report with completion latency/path metrics
 - [ ] Verify long responses can exceed two minutes while continuing to make semantic progress on a real ChatGPT session
 - [ ] Verify strong-signal response completion normally returns within about one second of observed generation end on a real ChatGPT session
 
