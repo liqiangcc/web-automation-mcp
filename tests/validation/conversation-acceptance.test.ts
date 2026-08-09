@@ -18,6 +18,10 @@ import type {
   ListConversationsResult,
 } from '../../src/ports/conversation-catalog-port.js';
 import type {
+  ConversationExportApplicationPort,
+  ExportConversationRequest,
+} from '../../src/ports/conversation-export-port.js';
+import type {
   ConversationReaderApplicationPort,
   GetConversationRequest,
 } from '../../src/ports/conversation-reader-port.js';
@@ -32,7 +36,8 @@ class FakeConversationApplication
   implements
     AutomationApplicationPort,
     ConversationCatalogApplicationPort,
-    ConversationReaderApplicationPort
+    ConversationReaderApplicationPort,
+    ConversationExportApplicationPort
 {
   private seedMarker = '';
   private continuationMarker = '';
@@ -111,6 +116,18 @@ class FakeConversationApplication
     };
   }
 
+  public async exportConversationToFile(request: ExportConversationRequest) {
+    return {
+      provider: request.provider,
+      profileId: request.profileId,
+      conversationId: request.conversationId,
+      filePath: request.outputPath,
+      messageCount: this.continuationMarker.length > 0 ? 4 : 2,
+      bytesWritten: 256,
+      sha256: 'abc123',
+    };
+  }
+
   public async listConversations(
     request: ListConversationsRequest,
   ): Promise<ListConversationsResult> {
@@ -127,7 +144,7 @@ class FakeConversationApplication
 }
 
 describe('conversation acceptance', () => {
-  it('passes when pagination, full reading, continuation and reopen all agree', async () => {
+  it('passes when pagination, full reading, continuation, export and reopen all agree', async () => {
     let clock = 0;
     const application = new FakeConversationApplication([
       [
@@ -168,10 +185,17 @@ describe('conversation acceptance', () => {
       markerPresent: true,
       reopenedLastResponseMarkerPresent: true,
     });
+    expect(report.export).toEqual({
+      attempted: true,
+      outputPath: 'validation/conversation-export-100.md',
+      messageCount: 4,
+      bytesWritten: 256,
+      sha256Present: true,
+    });
     expect(report.createdConversationIds).toEqual(['seed-conversation']);
   });
 
-  it('is inconclusive when reading and continuation work but there is no second cursor page', async () => {
+  it('is inconclusive when read/continue/export work but there is no second cursor page', async () => {
     let clock = 0;
     const application = new FakeConversationApplication([
       [{ conversationId: 'seed-conversation', title: 'Seed' }],
@@ -187,6 +211,7 @@ describe('conversation acceptance', () => {
     expect(report.conclusive).toBe(false);
     expect(report.reason).toBe('pagination_not_exercised');
     expect(report.reading.continuedMarkerPresent).toBe(true);
+    expect(report.export.attempted).toBe(true);
     expect(report.continuation.reopenedLastResponseMarkerPresent).toBe(true);
   });
 
@@ -215,5 +240,6 @@ describe('conversation acceptance', () => {
     expect(report.discovery.duplicateCount).toBe(1);
     expect(report.reading.initialAttempted).toBe(false);
     expect(report.continuation.attempted).toBe(false);
+    expect(report.export.attempted).toBe(false);
   });
 });
