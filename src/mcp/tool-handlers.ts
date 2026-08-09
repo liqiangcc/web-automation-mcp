@@ -4,6 +4,7 @@ import type {
   AskRequest,
   AskToFileRequest,
   AskWithFilesRequest,
+  ConversationCursor,
   ConversationId,
   ProfileId,
   ProviderId,
@@ -16,6 +17,10 @@ import type {
   NewChatRequest,
   SessionStatusRequest,
 } from '../ports/automation-application-port.js';
+import type {
+  ConversationCatalogApplicationPort,
+  ListConversationsRequest,
+} from '../ports/conversation-catalog-port.js';
 
 export interface WebSessionStatusToolInput {
   readonly provider: ProviderId;
@@ -49,6 +54,13 @@ export interface WebGetLastResponseToolInput {
   readonly conversationId: ConversationId;
 }
 
+export interface WebListConversationsToolInput {
+  readonly provider: ProviderId;
+  readonly profileId: ProfileId;
+  readonly limit?: number;
+  readonly cursor?: ConversationCursor;
+}
+
 export async function handleWebSessionStatus(
   input: WebSessionStatusToolInput,
   application: AutomationApplicationPort,
@@ -66,6 +78,42 @@ export async function handleWebSessionStatus(
         provider: result.provider,
         profileId: result.profileId,
         status: result.status,
+      },
+    };
+  } catch (error) {
+    return toMcpToolError(error);
+  }
+}
+
+export async function handleWebListConversations(
+  input: WebListConversationsToolInput,
+  application: Partial<ConversationCatalogApplicationPort>,
+): Promise<CallToolResult> {
+  try {
+    const listConversations = application.listConversations;
+    if (listConversations === undefined) {
+      throw new Error('Conversation catalog application capability is not configured.');
+    }
+    const request: ListConversationsRequest = {
+      provider: input.provider,
+      profileId: input.profileId,
+      ...(input.limit === undefined ? {} : { limit: input.limit }),
+      ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+    };
+    const result = await listConversations.call(application, request);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(result.conversations),
+        },
+      ],
+      structuredContent: {
+        ok: true,
+        provider: result.provider,
+        profileId: result.profileId,
+        conversations: result.conversations,
+        ...(result.nextCursor === undefined ? {} : { nextCursor: result.nextCursor }),
       },
     };
   } catch (error) {
