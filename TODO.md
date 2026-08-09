@@ -67,21 +67,21 @@
 - [x] Define DOM-change wakeup as browser mechanics, not provider semantics
 - [x] Define semantic activity independently from raw DOM mutation activity
 - [x] Define fast/fallback settle paths and start/idle/absolute timeout meanings
-- [ ] Add generic browser DOM-change wait capability
-- [ ] Implement Playwright `MutationObserver` change source with bounded debounce and cleanup
-- [ ] Add ChatGPT completion snapshot source for response/generation/composer state
-- [ ] Add composer-ready semantic probe without leaking selectors outside `adapters/chatgpt`
-- [ ] Refactor `CompletionDetector` from fixed polling to event-driven state machine
-- [ ] Track semantic progress instead of using the old two-minute total timeout as the normal limit
-- [ ] Add precise `RESPONSE_START_TIMEOUT` and `GENERATION_STALLED` classifications
-- [ ] Keep a large absolute safety timeout
-- [ ] Add low-frequency watchdog only as missed-event/page-lifecycle resilience fallback
-- [ ] Add unit tests proving unrelated DOM wakeups do not reset semantic idle time
-- [ ] Add unit tests for fast completion, fallback completion, settle cancellation, stall and absolute timeout
-- [ ] Add completion-path/latency metadata without logging response content
+- [x] Add generic browser DOM-change wait capability
+- [x] Implement Playwright `MutationObserver` change source with bounded debounce and cleanup
+- [x] Add ChatGPT completion snapshot source for response/generation/composer state
+- [x] Add composer-ready semantic probe without leaking selectors outside `adapters/chatgpt`
+- [x] Refactor `CompletionDetector` from fixed polling to event-driven state machine
+- [x] Track semantic progress instead of using the old two-minute total timeout as the normal limit
+- [x] Add precise `RESPONSE_START_TIMEOUT` and `GENERATION_STALLED` classifications
+- [x] Keep a large absolute safety timeout
+- [x] Add low-frequency watchdog only as missed-event/page-lifecycle resilience fallback
+- [x] Add unit tests proving unrelated DOM wakeups do not reset semantic idle time
+- [x] Add unit tests for fast completion, fallback completion, settle cancellation, stall and absolute timeout
+- [ ] Add completion-path/latency metadata to lifecycle observability without logging response content
 - [ ] Extend live validation report with completion latency/path metrics
-- [ ] Verify long responses can exceed two minutes while continuing to make semantic progress
-- [ ] Verify strong-signal response completion normally returns within about one second of observed generation end
+- [ ] Verify long responses can exceed two minutes while continuing to make semantic progress on a real ChatGPT session
+- [ ] Verify strong-signal response completion normally returns within about one second of observed generation end on a real ChatGPT session
 
 ## Phase 5.5 - Local file input and web upload
 
