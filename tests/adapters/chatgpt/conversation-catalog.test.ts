@@ -98,4 +98,62 @@ describe('ChatGptConversationCatalog', () => {
     expect(page.scrolls).toBeGreaterThan(0);
     expect(page.scrolls).toBeLessThanOrEqual(3);
   });
+
+  it('keeps duplicate titles distinct and tolerates row reordering across virtualized snapshots', async () => {
+    const page = new FakePage([
+      [item('c2', 'Same title'), item('c1', 'Same title')],
+      [item('c1', 'Same title'), item('c2', 'Same title'), item('c3', 'Third')],
+      [item('c3', 'Third'), item('c2', 'Same title'), item('c1', 'Same title')],
+    ]);
+
+    const result = await new ChatGptConversationCatalog(page).list({
+      profileId: 'default',
+      limit: 20,
+    });
+
+    expect(result.conversations).toEqual([
+      { conversationId: 'c2', title: 'Same title' },
+      { conversationId: 'c1', title: 'Same title' },
+      { conversationId: 'c3', title: 'Third' },
+    ]);
+  });
+
+  it('rejects malformed opaque cursors instead of guessing a browser position', async () => {
+    const page = new FakePage([[item('c1', 'First')]]);
+
+    await expect(
+      new ChatGptConversationCatalog(page).list({
+        profileId: 'default',
+        limit: 20,
+        cursor: 'not-a-valid-cursor',
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+  });
+
+  it('fails closed when a cursor anchor cannot be rediscovered after virtualization', async () => {
+    const firstPage = new FakePage([
+      [item('c1', 'First'), item('c2', 'Second')],
+      [item('c1', 'First'), item('c2', 'Second'), item('c3', 'Third')],
+    ]);
+    const first = await new ChatGptConversationCatalog(firstPage).list({
+      profileId: 'default',
+      limit: 2,
+    });
+    if (first.nextCursor === undefined) {
+      throw new Error('expected first page cursor');
+    }
+
+    const missingAnchorPage = new FakePage([
+      [item('c3', 'Third'), item('c4', 'Fourth')],
+      [item('c4', 'Fourth'), item('c3', 'Third')],
+    ]);
+
+    await expect(
+      new ChatGptConversationCatalog(missingAnchorPage).list({
+        profileId: 'default',
+        limit: 2,
+        cursor: first.nextCursor,
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+  });
 });
