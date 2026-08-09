@@ -53,8 +53,8 @@
 
 ## Phase 5 - Reliability
 
-- [ ] Structured request lifecycle logs
-- [ ] Diagnostics bundle
+- [x] Structured request lifecycle logs
+- [x] Diagnostics bundle
 - [ ] 30-run validation matrix
 - [ ] Failure classification tests
 - [ ] Locator fallback test fixture
