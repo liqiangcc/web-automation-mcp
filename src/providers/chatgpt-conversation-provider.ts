@@ -66,6 +66,7 @@ export class ChatGptConversationProvider
   public async delete(input: ConversationMutationInput): Promise<void> {
     const session = await this.sessions.acquire(this.id, input.profileId);
     try {
+      await new ChatGptConversationNavigator(session.page).open(input.conversationId);
       await requireAuthenticatedChatGptSession(session.page);
       await new ChatGptConversationMutation(session.page).delete(input.conversationId);
     } finally {
