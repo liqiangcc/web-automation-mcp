@@ -44,6 +44,33 @@ describe('ChatGptTargetResolver', () => {
     await expect(resolver.find('prompt-submit')).resolves.toBeUndefined();
   });
 
+  it('reports ABSENT only when every configured candidate was inspected successfully', async () => {
+    const resolver = new ChatGptTargetResolver(new FakePage(() => false), {
+      'generation-stop': [PRIMARY, FALLBACK],
+    });
+
+    await expect(resolver.observe('generation-stop')).resolves.toEqual({ status: 'ABSENT' });
+  });
+
+  it('reports UNKNOWN when target inspection fails and no fallback is found', async () => {
+    const resolver = new ChatGptTargetResolver(
+      new FakePage(() => {
+        throw new Error('page inspection failed');
+      }),
+      { 'generation-stop': [PRIMARY, FALLBACK] },
+    );
+
+    await expect(resolver.observe('generation-stop')).resolves.toEqual({ status: 'UNKNOWN' });
+  });
+
+  it('reports UNKNOWN when a semantic target has no configured candidates', async () => {
+    const resolver = new ChatGptTargetResolver(new FakePage(() => false), {
+      'generation-stop': [],
+    });
+
+    await expect(resolver.observe('generation-stop')).resolves.toEqual({ status: 'UNKNOWN' });
+  });
+
   it('throws TARGET_NOT_FOUND when a required target cannot be resolved', async () => {
     const resolver = new ChatGptTargetResolver(new FakePage(() => false));
 

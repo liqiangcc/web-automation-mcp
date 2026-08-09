@@ -6,6 +6,11 @@ import {
   type ChatGptTargetRegistry,
 } from './targets.js';
 
+export type ChatGptTargetObservation =
+  | { readonly status: 'FOUND'; readonly candidate: LocatorCandidate }
+  | { readonly status: 'ABSENT' }
+  | { readonly status: 'UNKNOWN' };
+
 export class ChatGptTargetResolver {
   public constructor(
     private readonly page: BrowserPagePort,
@@ -23,6 +28,26 @@ export class ChatGptTargetResolver {
         ? this.page.isVisible(candidate)
         : exists.call(this.page, candidate);
     });
+  }
+
+  public async observe(target: ChatGptSemanticTarget): Promise<ChatGptTargetObservation> {
+    const candidates = this.registry[target] ?? [];
+    if (candidates.length === 0) {
+      return { status: 'UNKNOWN' };
+    }
+
+    let inspectionFailed = false;
+    for (const candidate of candidates) {
+      try {
+        if (await this.page.isVisible(candidate)) {
+          return { status: 'FOUND', candidate };
+        }
+      } catch {
+        inspectionFailed = true;
+      }
+    }
+
+    return inspectionFailed ? { status: 'UNKNOWN' } : { status: 'ABSENT' };
   }
 
   public async require(target: ChatGptSemanticTarget): Promise<LocatorCandidate> {

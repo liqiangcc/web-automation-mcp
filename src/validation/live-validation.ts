@@ -2,6 +2,7 @@ import { WebAutomationError, type ExecutionErrorCode } from '../domain/errors.js
 import type { ResponseCompletionMetadata, ResponseCompletionPath } from '../domain/execution.js';
 import type { AttachmentApplicationPort } from '../ports/attachment-application-port.js';
 import type { AutomationApplicationPort } from '../ports/automation-application-port.js';
+import { hasTerminalValidationMarker } from './response-marker.js';
 
 export type LiveValidationApplication = AutomationApplicationPort & AttachmentApplicationPort;
 
@@ -178,7 +179,7 @@ export async function runLiveValidation(
       if (validationCase.conversationKey !== undefined) {
         conversationIds.set(validationCase.conversationKey, result.conversationId);
       }
-      const complete = result.responseText.includes(marker);
+      const complete = hasTerminalValidationMarker(result.responseText, marker);
       results.push({
         id: validationCase.id,
         category: validationCase.category,
@@ -242,7 +243,7 @@ export async function runAttachmentValidation(
       const expectedText = spec.expectedText ?? [];
       const complete =
         result.fileCount === spec.files.length &&
-        result.responseText.includes(marker) &&
+        hasTerminalValidationMarker(result.responseText, marker) &&
         expectedText.every((value) => result.responseText.includes(value));
       results.push({
         id: spec.id,

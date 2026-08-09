@@ -83,6 +83,34 @@ describe('ChatGptCompletionDetector', () => {
     });
   });
 
+  it('uses a conservative 120 second idle timeout by default', async () => {
+    const timeline = new Timeline([
+      at(0, snapshot('part 1', true)),
+      at(90_000, snapshot('part 1 part 2', true)),
+      at(100_000, snapshot('complete answer', false)),
+    ]);
+    const detector = new ChatGptCompletionDetector(
+      timeline,
+      timeline,
+      {
+        watchdogIntervalMs: 100_000,
+        fastSettleMs: 200,
+      },
+      {
+        now: () => timeline.now,
+        sleep: async (delayMs) => {
+          timeline.now += delayMs;
+        },
+      },
+    );
+
+    await expect(detector.waitForCompletion()).resolves.toMatchObject({
+      text: 'complete answer',
+      completionPath: 'fast',
+      elapsedMs: 100_200,
+    });
+  });
+
   it('classifies a response that never starts separately from a generation stall', async () => {
     const timeline = new Timeline([at(0, snapshot())], [100, 200]);
     const detector = createDetector(timeline, timeline, {

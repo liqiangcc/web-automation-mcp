@@ -20,6 +20,7 @@ import {
   runAttachmentValidation,
   runLiveValidation,
 } from '../../src/validation/live-validation.js';
+import { hasTerminalValidationMarker } from '../../src/validation/response-marker.js';
 
 class FakeLiveApplication implements AutomationApplicationPort, AttachmentApplicationPort {
   public askRequests: AskRequest[] = [];
@@ -150,6 +151,15 @@ describe('live validation', () => {
         (result) => result.category === 'multi_turn' && result.conversationContinued,
       ),
     ).toHaveLength(4);
+  });
+
+  it('requires a unique marker on the final line rather than accepting a marker in partial output', () => {
+    const marker = 'WEB_AUTOMATION_VALIDATION_END::short_1';
+
+    expect(hasTerminalValidationMarker(`answer\n${marker}`, marker)).toBe(true);
+    expect(hasTerminalValidationMarker(`${marker}\ntrailing output`, marker)).toBe(false);
+    expect(hasTerminalValidationMarker(`answer\n${marker}\nmore\n${marker}`, marker)).toBe(false);
+    expect(hasTerminalValidationMarker(`answer\n${marker} `, marker)).toBe(false);
   });
 
   it('validates attachment count, expected tokens, completion marker, and completion metadata', async () => {

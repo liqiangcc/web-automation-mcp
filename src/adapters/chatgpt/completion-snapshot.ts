@@ -36,7 +36,15 @@ export class ChatGptGenerationProbe implements GenerationStatusSource {
   }
 
   public async isGenerating(): Promise<ObservableBoolean> {
-    return (await this.resolver.find('generation-stop')) !== undefined;
+    const observation = await this.resolver.observe('generation-stop');
+    switch (observation.status) {
+      case 'FOUND':
+        return true;
+      case 'ABSENT':
+        return false;
+      case 'UNKNOWN':
+        return 'unknown';
+    }
   }
 }
 

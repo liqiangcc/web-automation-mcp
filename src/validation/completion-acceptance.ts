@@ -1,6 +1,7 @@
 import { WebAutomationError, type ExecutionErrorCode } from '../domain/errors.js';
 import type { ResponseCompletionPath } from '../domain/execution.js';
 import type { AutomationApplicationPort } from '../ports/automation-application-port.js';
+import { hasTerminalValidationMarker } from './response-marker.js';
 
 export type CompletionAcceptanceStatus = 'PASS' | 'FAIL' | 'INCONCLUSIVE' | 'ERROR';
 
@@ -104,7 +105,7 @@ export async function runCompletionAcceptance(
       });
       const durationMs = Math.max(0, now() - requestStartedAt);
       const completion = result.completion;
-      const markerPresent = result.responseText.includes(marker);
+      const markerPresent = hasTerminalValidationMarker(result.responseText, marker);
       const status: CompletionAcceptanceStatus = !markerPresent
         ? 'FAIL'
         : completion === undefined
@@ -169,7 +170,7 @@ async function runLongAcceptance(
       prompt: `${longPrompt()}\n\nAt the very end, on its own line, output exactly: ${marker}`,
     });
     const durationMs = Math.max(0, now() - startedAt);
-    if (!result.responseText.includes(marker)) {
+    if (!hasTerminalValidationMarker(result.responseText, marker)) {
       return {
         status: 'FAIL',
         durationMs,
@@ -232,7 +233,8 @@ function summarizeFast(
   const fastSamples = metadataSamples.filter((sample) => sample.completionPath === 'fast').length;
   const fallbackSamples = metadataSamples.filter((sample) => sample.completionPath === 'fallback').length;
   const unavailableMetadata = samples.length - metadataSamples.length;
-  const latencies = samples
+  const fastLatencies = samples
+    .filter((sample) => sample.completionPath === 'fast')
     .map((sample) => sample.completionLatencyMs)
     .filter((value): value is number => value !== undefined)
     .sort((left, right) => left - right);
@@ -240,7 +242,7 @@ function summarizeFast(
   const passedSamples = samples.filter((sample) => sample.status === 'PASS').length;
   const conclusive = unavailableMetadata === 0;
 
-  if (latencies.length === 0) {
+  if (fastLatencies.length === 0) {
     return {
       requested: samples.length,
       passedSamples,
@@ -255,8 +257,8 @@ function summarizeFast(
     };
   }
 
-  const p95LatencyMs = percentile(latencies, 0.95) ?? 0;
-  const maxLatencyMs = latencies[latencies.length - 1] ?? 0;
+  const p95LatencyMs = percentile(fastLatencies, 0.95) ?? 0;
+  const maxLatencyMs = fastLatencies[fastLatencies.length - 1] ?? 0;
   const passed =
     conclusive &&
     fastSamples >= requiredFastSamples &&
@@ -270,9 +272,9 @@ function summarizeFast(
     fastSamples,
     fallbackSamples,
     unavailableMetadata,
-    latencySamples: latencies.length,
+    latencySamples: fastLatencies.length,
     averageLatencyMs: Math.round(
-      latencies.reduce((sum, value) => sum + value, 0) / latencies.length,
+      fastLatencies.reduce((sum, value) => sum + value, 0) / fastLatencies.length,
     ),
     p95LatencyMs,
     maxLatencyMs,
