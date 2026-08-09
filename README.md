@@ -40,6 +40,7 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 - Discover recent conversations with bounded opaque-cursor pagination
 - Read one explicit conversation as an ordered semantic transcript
 - Export a complete conversation to a restricted workspace file without returning the full transcript
+- Delete one explicitly identified conversation with positive target/success verification
 - Save a completed response directly to a restricted local file without returning the full text
 - Detect authentication loss and provider-UI mismatch
 - Diagnostic artifacts on failure
@@ -58,6 +59,7 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 - Per-request workspace switching
 - Reverse engineering ChatGPT private streaming/network protocols
 - Process-global or tab-global active conversation state
+- Rule-based/delete-all conversation cleanup without an explicit preview/selection model
 
 ## Current MCP surface
 
@@ -65,6 +67,7 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 - `web_list_conversations(profileId, limit?, cursor?)`
 - `web_get_conversation(profileId, conversationId)`
 - `web_export_conversation_to_file(profileId, conversationId, outputPath, overwrite?)`
+- `web_delete_conversation(profileId, conversationId)`
 - `web_new_chat(profileId)`
 - `web_ask(profileId, prompt, conversationId?)`
 - `web_ask_with_files(profileId, prompt, files[], conversationId?)`
@@ -72,6 +75,8 @@ The browser is an implementation detail. MCP clients work with semantic operatio
 - `web_get_last_response(profileId, conversationId)`
 
 `web_list_conversations` returns lightweight conversation IDs/titles only. `web_get_conversation` returns ordered semantic message bodies for one explicit ID and refuses to silently truncate transcripts that exceed its deterministic response-size guard. `web_export_conversation_to_file` reuses the same complete conversation reader but bypasses the MCP transcript-size guard, renders deterministic Markdown, writes through the restricted output-file boundary, and returns file metadata only.
+
+`web_delete_conversation` is deliberately separate from discovery and reading. It requires an explicit `conversationId`, verifies the active requested ID before destructive interaction, scopes the provider menu lookup to that exact conversation handle, and reports success only after both the handle and active target disappear. It never deletes by title or whichever conversation happens to be active.
 
 ## Workspace-relative paths
 
@@ -145,6 +150,16 @@ npm run validate:conversations -- --profile default
 ```
 
 The acceptance flow creates one disposable test conversation, discovers it through pagination, reads the full semantic transcript, continues the same explicit conversation ID, reads it again to prove the transcript extended, and finally verifies the last response. A fixture/CI pass is not a substitute for this authenticated browser run.
+
+## Conversation cleanup validation
+
+Single-conversation cleanup has a separate destructive acceptance command:
+
+```bash
+npm run validate:cleanup -- --profile default
+```
+
+This command creates exactly two disposable test conversations, verifies both explicit IDs, deletes only the target, proves the unrelated survivor remains readable, verifies a repeated delete returns `CONVERSATION_NOT_FOUND`, then deletes the disposable survivor. It does not select or delete pre-existing history. CI/fixture success is not a substitute for this real authenticated run.
 
 ## Local authentication and persistence checks
 
