@@ -1,7 +1,6 @@
 import type { ConversationId } from '../../domain/conversation.js';
 import { WebAutomationError } from '../../domain/errors.js';
 import type { BrowserPagePort, LocatorCandidate } from '../../ports/browser-port.js';
-import { ChatGptConversationNavigator } from './conversation-navigator.js';
 import { ChatGptTargetResolver } from './target-resolver.js';
 
 const DOM_WAIT_MS = 1_000;
@@ -30,9 +29,7 @@ export class ChatGptConversationMutation {
       );
     }
 
-    const navigator = new ChatGptConversationNavigator(this.page);
-    await navigator.open(conversationId);
-    if (navigator.currentConversationId() !== conversationId) {
+    if (currentConversationId(this.page) !== conversationId) {
       throw new WebAutomationError(
         'CONVERSATION_NOT_FOUND',
         'The requested conversation could not be positively identified before deletion.',
