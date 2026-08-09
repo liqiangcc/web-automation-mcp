@@ -73,6 +73,9 @@ describe('ChatGptConversationCatalog', () => {
       { conversationId: 'c2', title: 'Second' },
     ]);
     expect(first.nextCursor).toEqual(expect.any(String));
+    if (first.nextCursor === undefined) {
+      throw new Error('expected first page cursor');
+    }
 
     const secondPage = new FakePage([
       [item('c1', 'First'), item('c2', 'Second')],
