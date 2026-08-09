@@ -142,7 +142,8 @@ class UnknownPage implements BrowserPagePort {
   public async fill(): Promise<void> {}
   public async click(): Promise<void> {}
   public async press(): Promise<void> {}
-  public async textContents(_locator: LocatorCandidate): Promise<readonly string[]> {
+  public async textContents(locator: LocatorCandidate): Promise<readonly string[]> {
+    void locator;
     return [];
   }
 }
