@@ -6,7 +6,6 @@ import type {
   BrowserElementSnapshot,
   BrowserPagePort,
   DomChangeWaitResult,
-  LocatorCandidate,
 } from '../../../src/ports/browser-port.js';
 
 class FakePage implements BrowserPagePort {
