@@ -191,7 +191,7 @@ export async function handleWebAsk(
 
 export async function handleWebAskWithFiles(
   input: WebAskWithFilesToolInput,
-  application: Partial<AttachmentApplicationPort>,
+  application: AutomationApplicationPort & Partial<AttachmentApplicationPort>,
 ): Promise<CallToolResult> {
   try {
     const askWithFiles = application.askWithFiles;
@@ -214,6 +214,7 @@ export async function handleWebAskWithFiles(
         profileId: result.profileId,
         conversationId: result.conversationId,
         responseText: result.responseText,
+        fileCount: result.fileCount,
       },
     };
   } catch (error) {
@@ -231,20 +232,15 @@ export async function handleWebAskToFile(
       profileId: input.profileId,
       prompt: input.prompt,
       outputPath: input.outputPath,
+      overwrite: input.overwrite ?? false,
       ...(input.conversationId === undefined ? {} : { conversationId: input.conversationId }),
-      ...(input.overwrite === undefined ? {} : { overwrite: input.overwrite }),
     };
     const result = await application.askToFile(request);
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            conversationId: result.conversationId,
-            filePath: result.filePath,
-            bytesWritten: result.bytesWritten,
-            sha256: result.sha256,
-          }),
+          text: `Saved web AI response to ${result.filePath} (${result.bytesWritten} bytes).`,
         },
       ],
       structuredContent: {
@@ -385,14 +381,14 @@ function publicMessageFor(error: WebAutomationError): string {
     case 'INPUT_FILE_NOT_FOUND':
       return 'The requested input file was not found.';
     case 'INPUT_FILE_TOO_LARGE':
-      return 'The requested input file exceeds the configured size limit.';
+      return 'The requested input file exceeds the configured local size limit.';
     case 'FILE_UPLOAD_FAILED':
-      return 'The provider did not accept one or more requested input files.';
+      return 'The validated local files could not be attached to the provider.';
     case 'OUTPUT_PATH_NOT_ALLOWED':
-      return 'The output path is outside the configured output directory or is not allowed.';
+      return 'The output path is outside the configured output directory.';
     case 'FILE_ALREADY_EXISTS':
-      return 'The output file already exists and overwrite was not enabled.';
+      return 'The output file already exists. Enable overwrite or choose another path.';
     case 'FILE_WRITE_FAILED':
-      return 'The output file could not be written safely.';
+      return 'The provider response could not be saved to the requested file.';
   }
 }
