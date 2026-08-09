@@ -4,9 +4,7 @@ import { ChatGptConversationCatalog } from '../../../src/adapters/chatgpt/conver
 import type {
   BrowserElementSnapshot,
   BrowserPagePort,
-  DomChangeWaitOptions,
   DomChangeWaitResult,
-  LocatorCandidate,
 } from '../../../src/ports/browser-port.js';
 
 class FakePage implements BrowserPagePort {
@@ -29,10 +27,7 @@ class FakePage implements BrowserPagePort {
     return [];
   }
 
-  public async elementSnapshots(
-    _locator: LocatorCandidate,
-    _attributeNames: readonly string[],
-  ): Promise<readonly BrowserElementSnapshot[]> {
+  public async elementSnapshots(): Promise<readonly BrowserElementSnapshot[]> {
     const value = this.reads[Math.min(this.readIndex, this.reads.length - 1)] ?? [];
     this.readIndex += 1;
     return value;
@@ -42,9 +37,7 @@ class FakePage implements BrowserPagePort {
     this.scrolls += 1;
   }
 
-  public async waitForDomChange(
-    _options: DomChangeWaitOptions,
-  ): Promise<DomChangeWaitResult> {
+  public async waitForDomChange(): Promise<DomChangeWaitResult> {
     return 'changed';
   }
 }
