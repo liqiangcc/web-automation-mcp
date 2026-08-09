@@ -3,6 +3,7 @@ import {
   AssistantResponseBaselineTracker,
   ChatGptAssistantResponseReader,
 } from './assistant-responses.js';
+import { ChatGptAttachmentUploader } from './attachment-uploader.js';
 import {
   requireAuthenticatedChatGptSession,
   type AuthenticationWaitOptions,
@@ -28,8 +29,19 @@ export class ChatGptPageWorkflow {
     private readonly options: ChatGptPageWorkflowOptions = {},
   ) {}
 
-  public async ask(prompt: string): Promise<string> {
+  public ask(prompt: string): Promise<string> {
+    return this.execute(prompt);
+  }
+
+  public askWithFiles(prompt: string, filePaths: readonly string[]): Promise<string> {
+    return this.execute(prompt, async () => {
+      await new ChatGptAttachmentUploader(this.page).upload(filePaths);
+    });
+  }
+
+  private async execute(prompt: string, prepare?: () => Promise<void>): Promise<string> {
     await requireAuthenticatedChatGptSession(this.page, this.options.authentication);
+    await prepare?.();
 
     const responses = new ChatGptAssistantResponseReader(this.page);
     const baseline = await new AssistantResponseBaselineTracker(responses).capture();

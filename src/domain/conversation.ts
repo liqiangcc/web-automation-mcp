@@ -16,6 +16,14 @@ export interface AskResult {
   readonly responseText: string;
 }
 
+export interface AskWithFilesRequest extends AskRequest {
+  readonly files: readonly string[];
+}
+
+export interface AskWithFilesResult extends AskResult {
+  readonly fileCount: number;
+}
+
 export interface AskToFileRequest extends AskRequest {
   readonly outputPath: string;
   readonly overwrite?: boolean;

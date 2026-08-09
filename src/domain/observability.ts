@@ -2,7 +2,12 @@ import type { ProfileId, ProviderId } from './conversation.js';
 import type { ExecutionErrorCode } from './errors.js';
 
 export type AutomationOperation =
-  'ask' | 'ask_to_file' | 'session_status' | 'new_chat' | 'get_last_response';
+  | 'ask'
+  | 'ask_with_files'
+  | 'ask_to_file'
+  | 'session_status'
+  | 'new_chat'
+  | 'get_last_response';
 
 export type LifecyclePhase = 'START' | 'SUCCESS' | 'FAILURE';
 export type ObservabilityErrorCode = ExecutionErrorCode | 'INTERNAL_ERROR';

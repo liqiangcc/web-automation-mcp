@@ -13,17 +13,16 @@ export class ChatGptTargetResolver {
   ) {}
 
   public async find(target: ChatGptSemanticTarget): Promise<LocatorCandidate | undefined> {
-    for (const candidate of this.registry[target] ?? []) {
-      try {
-        if (await this.page.isVisible(candidate)) {
-          return candidate;
-        }
-      } catch {
-        // A single locator failure must not prevent later fallback candidates.
-      }
-    }
+    return this.findCandidate(target, async (candidate) => this.page.isVisible(candidate));
+  }
 
-    return undefined;
+  public async findExisting(target: ChatGptSemanticTarget): Promise<LocatorCandidate | undefined> {
+    return this.findCandidate(target, async (candidate) => {
+      const exists = this.page.exists;
+      return exists === undefined
+        ? this.page.isVisible(candidate)
+        : exists.call(this.page, candidate);
+    });
   }
 
   public async require(target: ChatGptSemanticTarget): Promise<LocatorCandidate> {
@@ -36,5 +35,22 @@ export class ChatGptTargetResolver {
       'TARGET_NOT_FOUND',
       `Could not resolve ChatGPT semantic target: ${target}`,
     );
+  }
+
+  private async findCandidate(
+    target: ChatGptSemanticTarget,
+    matches: (candidate: LocatorCandidate) => Promise<boolean>,
+  ): Promise<LocatorCandidate | undefined> {
+    for (const candidate of this.registry[target] ?? []) {
+      try {
+        if (await matches(candidate)) {
+          return candidate;
+        }
+      } catch {
+        // A single locator failure must not prevent later fallback candidates.
+      }
+    }
+
+    return undefined;
   }
 }

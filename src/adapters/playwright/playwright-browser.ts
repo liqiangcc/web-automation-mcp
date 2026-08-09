@@ -93,6 +93,10 @@ class PlaywrightBrowserPage implements BrowserPagePort {
     return (await this.visibleLocator(candidate).count()) > 0;
   }
 
+  public async exists(candidate: LocatorCandidate): Promise<boolean> {
+    return (await this.locator(candidate).count()) > 0;
+  }
+
   public async fill(candidate: LocatorCandidate, value: string): Promise<void> {
     await this.visibleLocator(candidate).first().fill(value);
   }
@@ -103,6 +107,13 @@ class PlaywrightBrowserPage implements BrowserPagePort {
 
   public async press(candidate: LocatorCandidate, key: string): Promise<void> {
     await this.visibleLocator(candidate).first().press(key);
+  }
+
+  public async setInputFiles(
+    candidate: LocatorCandidate,
+    filePaths: readonly string[],
+  ): Promise<void> {
+    await this.locator(candidate).first().setInputFiles([...filePaths]);
   }
 
   public async textContents(candidate: LocatorCandidate): Promise<readonly string[]> {

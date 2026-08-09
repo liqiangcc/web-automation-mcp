@@ -1,5 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
+import type {
+  AskRequest,
+  AskResult,
+  AskToFileRequest,
+  AskToFileResult,
+  AskWithFilesRequest,
+  AskWithFilesResult,
+} from '../domain/conversation.js';
 import { WebAutomationError } from '../domain/errors.js';
 import type {
   AutomationOperation,
@@ -8,6 +16,7 @@ import type {
   ObservabilityErrorCode,
   SafeRequestContext,
 } from '../domain/observability.js';
+import type { AttachmentApplicationPort } from '../ports/attachment-application-port.js';
 import type {
   AutomationApplicationPort,
   LastResponseRequest,
@@ -17,12 +26,6 @@ import type {
   SessionStatusRequest,
   SessionStatusResult,
 } from '../ports/automation-application-port.js';
-import type {
-  AskRequest,
-  AskResult,
-  AskToFileRequest,
-  AskToFileResult,
-} from '../domain/conversation.js';
 import type { DiagnosticsBundleSink, LifecycleSink } from '../ports/observability-port.js';
 
 export interface ObservedAutomationApplicationDependencies {
@@ -32,12 +35,14 @@ export interface ObservedAutomationApplicationDependencies {
   readonly now?: () => Date;
 }
 
-export class ObservedAutomationApplication implements AutomationApplicationPort {
+export class ObservedAutomationApplication
+  implements AutomationApplicationPort, AttachmentApplicationPort
+{
   private readonly createRequestId: () => string;
   private readonly now: () => Date;
 
   public constructor(
-    private readonly inner: AutomationApplicationPort,
+    private readonly inner: AutomationApplicationPort & Partial<AttachmentApplicationPort>,
     private readonly dependencies: ObservedAutomationApplicationDependencies,
   ) {
     this.createRequestId = dependencies.createRequestId ?? randomUUID;
@@ -46,6 +51,16 @@ export class ObservedAutomationApplication implements AutomationApplicationPort 
 
   public ask(request: AskRequest): Promise<AskResult> {
     return this.observe('ask', contextFor(request), () => this.inner.ask(request));
+  }
+
+  public askWithFiles(request: AskWithFilesRequest): Promise<AskWithFilesResult> {
+    return this.observe('ask_with_files', contextFor(request), async () => {
+      const askWithFiles = this.inner.askWithFiles;
+      if (askWithFiles === undefined) {
+        throw new Error('Attachment application capability is not configured.');
+      }
+      return askWithFiles.call(this.inner, request);
+    });
   }
 
   public askToFile(request: AskToFileRequest): Promise<AskToFileResult> {

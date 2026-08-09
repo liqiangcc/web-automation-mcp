@@ -1,7 +1,12 @@
 import type { LocatorCandidate } from '../../ports/browser-port.js';
 
 export type ChatGptSemanticTarget =
-  'login' | 'prompt-input' | 'prompt-submit' | 'assistant-response' | 'generation-stop';
+  | 'login'
+  | 'prompt-input'
+  | 'prompt-submit'
+  | 'file-input'
+  | 'assistant-response'
+  | 'generation-stop';
 
 export type ChatGptTargetRegistry = Readonly<
   Partial<Record<ChatGptSemanticTarget, readonly LocatorCandidate[]>>
@@ -23,6 +28,10 @@ export const CHATGPT_TARGETS = {
     { kind: 'testId', value: 'send-button' },
     { kind: 'role', role: 'button', name: 'Send prompt' },
     { kind: 'role', role: 'button', name: 'Send' },
+  ],
+  'file-input': [
+    { kind: 'css', value: 'input[type="file"][multiple]' },
+    { kind: 'css', value: 'input[type="file"]' },
   ],
   'assistant-response': [
     { kind: 'css', value: '[data-message-author-role="assistant"] .markdown' },

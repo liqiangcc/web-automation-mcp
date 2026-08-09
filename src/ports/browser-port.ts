@@ -23,8 +23,10 @@ export interface BrowserPagePort {
   goto(url: string): Promise<void>;
   currentUrl?(): string;
   isVisible(locator: LocatorCandidate): Promise<boolean>;
+  exists?(locator: LocatorCandidate): Promise<boolean>;
   fill(locator: LocatorCandidate, value: string): Promise<void>;
   click(locator: LocatorCandidate): Promise<void>;
   press(locator: LocatorCandidate, key: string): Promise<void>;
+  setInputFiles?(locator: LocatorCandidate, filePaths: readonly string[]): Promise<void>;
   textContents(locator: LocatorCandidate): Promise<readonly string[]>;
 }
