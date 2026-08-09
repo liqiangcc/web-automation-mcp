@@ -32,6 +32,11 @@ import type {
   ListConversationsRequest,
   ListConversationsResult,
 } from '../ports/conversation-catalog-port.js';
+import type {
+  ConversationReaderApplicationPort,
+  GetConversationRequest,
+  GetConversationResult,
+} from '../ports/conversation-reader-port.js';
 import type { DiagnosticsBundleSink, LifecycleSink } from '../ports/observability-port.js';
 
 export interface ObservedAutomationApplicationDependencies {
@@ -42,7 +47,11 @@ export interface ObservedAutomationApplicationDependencies {
 }
 
 export class ObservedAutomationApplication
-  implements AutomationApplicationPort, AttachmentApplicationPort, ConversationCatalogApplicationPort
+  implements
+    AutomationApplicationPort,
+    AttachmentApplicationPort,
+    ConversationCatalogApplicationPort,
+    ConversationReaderApplicationPort
 {
   private readonly createRequestId: () => string;
   private readonly now: () => Date;
@@ -50,7 +59,8 @@ export class ObservedAutomationApplication
   public constructor(
     private readonly inner: AutomationApplicationPort &
       Partial<AttachmentApplicationPort> &
-      Partial<ConversationCatalogApplicationPort>,
+      Partial<ConversationCatalogApplicationPort> &
+      Partial<ConversationReaderApplicationPort>,
     private readonly dependencies: ObservedAutomationApplicationDependencies,
   ) {
     this.createRequestId = dependencies.createRequestId ?? randomUUID;
@@ -110,6 +120,16 @@ export class ObservedAutomationApplication
         throw new Error('Conversation catalog capability is not configured.');
       }
       return listConversations.call(this.inner, request);
+    });
+  }
+
+  public getConversation(request: GetConversationRequest): Promise<GetConversationResult> {
+    return this.observe('get_conversation', contextFor(request), async () => {
+      const getConversation = this.inner.getConversation;
+      if (getConversation === undefined) {
+        throw new Error('Conversation reader capability is not configured.');
+      }
+      return getConversation.call(this.inner, request);
     });
   }
 
