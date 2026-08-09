@@ -4,6 +4,7 @@ export type ProviderId = 'chatgpt';
 export type ProfileId = string;
 export type ConversationId = string;
 export type ConversationCursor = string;
+export type ConversationMessageRole = 'user' | 'assistant' | 'system' | 'other';
 
 export interface ConversationSummary {
   readonly conversationId: ConversationId;
@@ -13,6 +14,17 @@ export interface ConversationSummary {
 export interface ConversationPage {
   readonly conversations: readonly ConversationSummary[];
   readonly nextCursor?: ConversationCursor;
+}
+
+export interface ConversationMessage {
+  readonly role: ConversationMessageRole;
+  readonly text: string;
+}
+
+export interface ConversationTranscript {
+  readonly conversationId: ConversationId;
+  readonly title?: string;
+  readonly messages: readonly ConversationMessage[];
 }
 
 export interface AskRequest {
