@@ -27,6 +27,7 @@ child.stderr.setEncoding('utf8');
 child.stdout.on('data', (chunk) => {
   stdout += chunk;
 });
+child.stderr.setEncoding('utf8');
 child.stderr.on('data', (chunk) => {
   stderr += chunk;
 });
@@ -49,6 +50,7 @@ if (!Array.isArray(tools)) {
 const names = tools.map((tool) => tool.name);
 const required = [
   'web_session_status',
+  'web_list_conversations',
   'web_new_chat',
   'web_ask',
   'web_ask_with_files',
