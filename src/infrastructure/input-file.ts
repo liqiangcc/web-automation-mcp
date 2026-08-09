@@ -18,13 +18,12 @@ export class RestrictedInputFileResolver implements InputFilePort {
   private readonly maxFileBytes: number;
 
   public constructor(
-    inputRoot = process.env.WEB_AUTOMATION_MCP_INPUT_ROOT ?? process.cwd(),
+    inputRoot: string,
     options: RestrictedInputFileResolverOptions = {},
   ) {
     this.configuredRoot = resolve(inputRoot);
     this.maxFiles = options.maxFiles ?? DEFAULT_MAX_FILES;
-    this.maxFileBytes =
-      options.maxFileBytes ?? readMaxFileBytes(process.env.WEB_AUTOMATION_MCP_MAX_INPUT_FILE_BYTES);
+    this.maxFileBytes = options.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES;
     assertPositiveInteger('maxFiles', this.maxFiles);
     assertPositiveInteger('maxFileBytes', this.maxFileBytes);
   }
@@ -141,15 +140,6 @@ function assertInsideRoot(root: string, candidate: string): void {
       'The resolved input path is outside the configured input root.',
     );
   }
-}
-
-function readMaxFileBytes(rawValue: string | undefined): number {
-  if (rawValue === undefined || rawValue.trim().length === 0) {
-    return DEFAULT_MAX_FILE_BYTES;
-  }
-  const value = Number(rawValue);
-  assertPositiveInteger('WEB_AUTOMATION_MCP_MAX_INPUT_FILE_BYTES', value);
-  return value;
 }
 
 function assertPositiveInteger(field: string, value: number): void {

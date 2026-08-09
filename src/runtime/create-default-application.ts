@@ -17,9 +17,14 @@ import { ChatGptConversationProvider } from '../providers/chatgpt-conversation-p
 import { ChatGptProvider } from '../providers/chatgpt-provider.js';
 import { ChatGptSessionStatusProvider } from '../providers/chatgpt-session-status-provider.js';
 import { BrowserSessionManager } from '../session/browser-session.js';
+import { resolveWorkspacePaths } from './workspace-paths.js';
 
 export function createDefaultAutomationApplication(): AutomationApplicationPort & AttachmentApplicationPort {
   const headless = process.env.WEB_AUTOMATION_MCP_HEADLESS !== 'false';
+  const workspacePaths = resolveWorkspacePaths(process.cwd(), process.env);
+  const maxInputFileBytes = configuredMaxInputFileBytes(
+    process.env.WEB_AUTOMATION_MCP_MAX_INPUT_FILE_BYTES,
+  );
   const sessions = new BrowserSessionManager(new PlaywrightBrowserAdapter(), undefined, undefined, {
     headless,
   });
@@ -28,9 +33,15 @@ export function createDefaultAutomationApplication(): AutomationApplicationPort 
   const chatGptAttachmentProvider = new ChatGptAttachmentProvider(sessions);
   const askWithFilesUseCase = new AskWithFilesUseCase(
     new Map([[chatGptAttachmentProvider.id, chatGptAttachmentProvider]]),
-    new RestrictedInputFileResolver(),
+    new RestrictedInputFileResolver(
+      workspacePaths.inputRoot,
+      maxInputFileBytes === undefined ? {} : { maxFileBytes: maxInputFileBytes },
+    ),
   );
-  const askToFileUseCase = new AskToFileUseCase(askUseCase, new RestrictedAtomicAnswerFileWriter());
+  const askToFileUseCase = new AskToFileUseCase(
+    askUseCase,
+    new RestrictedAtomicAnswerFileWriter(workspacePaths.outputRoot),
+  );
   const sessionStatusProvider = new ChatGptSessionStatusProvider(sessions);
   const conversationProvider = new ChatGptConversationProvider(sessions);
   const conversationUseCases = new ConversationUseCases(
@@ -50,4 +61,8 @@ export function createDefaultAutomationApplication(): AutomationApplicationPort 
     lifecycle: new JsonLineLifecycleSink(),
     diagnostics: new FileDiagnosticsBundleSink(),
   });
+}
+
+function configuredMaxInputFileBytes(rawValue: string | undefined): number | undefined {
+  return rawValue === undefined || rawValue.trim().length === 0 ? undefined : Number(rawValue);
 }

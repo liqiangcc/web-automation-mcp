@@ -13,7 +13,7 @@ import type {
 export class RestrictedAtomicAnswerFileWriter implements AnswerFilePort {
   private readonly configuredRoot: string;
 
-  public constructor(outputRoot = process.env.WEB_AUTOMATION_MCP_OUTPUT_ROOT ?? process.cwd()) {
+  public constructor(outputRoot: string) {
     this.configuredRoot = resolve(outputRoot);
   }
 
