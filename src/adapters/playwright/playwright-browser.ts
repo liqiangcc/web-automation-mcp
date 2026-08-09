@@ -111,38 +111,36 @@ class PlaywrightBrowserPage implements BrowserPagePort {
     return this.page.evaluate(
       ({ timeoutMs: pageTimeoutMs, debounceMs: pageDebounceMs }) =>
         new Promise<'changed' | 'timeout'>((resolve) => {
+          const root = document.documentElement;
+          if (root === null) {
+            resolve('timeout');
+            return;
+          }
+
           let completed = false;
-          let debounceTimer: number | undefined;
-          let timeoutTimer: number | undefined;
-          let observer: MutationObserver | undefined;
+          const timers: { debounce?: number; timeout?: number } = {};
 
           const finish = (result: 'changed' | 'timeout'): void => {
             if (completed) {
               return;
             }
             completed = true;
-            observer?.disconnect();
-            if (debounceTimer !== undefined) {
-              window.clearTimeout(debounceTimer);
+            observer.disconnect();
+            if (timers.debounce !== undefined) {
+              window.clearTimeout(timers.debounce);
             }
-            if (timeoutTimer !== undefined) {
-              window.clearTimeout(timeoutTimer);
+            if (timers.timeout !== undefined) {
+              window.clearTimeout(timers.timeout);
             }
             resolve(result);
           };
 
-          observer = new MutationObserver(() => {
-            if (debounceTimer !== undefined) {
+          const observer = new MutationObserver(() => {
+            if (timers.debounce !== undefined) {
               return;
             }
-            debounceTimer = window.setTimeout(() => finish('changed'), pageDebounceMs);
+            timers.debounce = window.setTimeout(() => finish('changed'), pageDebounceMs);
           });
-
-          const root = document.documentElement;
-          if (root === null) {
-            finish('timeout');
-            return;
-          }
 
           observer.observe(root, {
             subtree: true,
@@ -150,7 +148,7 @@ class PlaywrightBrowserPage implements BrowserPagePort {
             characterData: true,
             attributes: true,
           });
-          timeoutTimer = window.setTimeout(() => finish('timeout'), pageTimeoutMs);
+          timers.timeout = window.setTimeout(() => finish('timeout'), pageTimeoutMs);
         }),
       { timeoutMs, debounceMs },
     );
