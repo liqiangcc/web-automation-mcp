@@ -12,16 +12,22 @@ export class ChatGptConversationNavigator implements ChatGptConversationNavigato
   public constructor(private readonly page: BrowserPagePort) {}
 
   public async open(conversationId?: ConversationId): Promise<void> {
-    if (conversationId === undefined) {
-      await this.page.goto(CHATGPT_URL);
-      return;
-    }
-
-    if (conversationId.trim().length === 0) {
+    if (conversationId !== undefined && conversationId.trim().length === 0) {
       throw new WebAutomationError('INVALID_REQUEST', 'conversationId must not be empty');
     }
 
-    await this.page.goto(`${CHATGPT_URL}c/${encodeURIComponent(conversationId)}`);
+    const url =
+      conversationId === undefined
+        ? CHATGPT_URL
+        : `${CHATGPT_URL}c/${encodeURIComponent(conversationId)}`;
+
+    try {
+      await this.page.goto(url);
+    } catch (error) {
+      throw new WebAutomationError('NAVIGATION_FAILED', 'Failed to open ChatGPT conversation', {
+        cause: error,
+      });
+    }
   }
 
   public currentConversationId(): ConversationId {
