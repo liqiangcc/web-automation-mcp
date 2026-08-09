@@ -11,7 +11,8 @@ export type AutomationOperation =
   | 'get_last_response'
   | 'list_conversations'
   | 'get_conversation'
-  | 'export_conversation';
+  | 'export_conversation'
+  | 'delete_conversation';
 
 export type LifecyclePhase = 'START' | 'SUCCESS' | 'FAILURE';
 export type ObservabilityErrorCode = ExecutionErrorCode | 'INTERNAL_ERROR';
