@@ -60,6 +60,9 @@
 - [x] Failure classification tests
 - [x] Locator fallback test fixture
 - [x] Security/redaction tests
+- [x] Fail runtime ChatGPT operations immediately on explicit `AUTH_REQUIRED`
+- [x] Retry only transient `UNKNOWN` authentication state with a bounded five-second stabilization window
+- [x] Preserve long-wait `login` semantics while allowing `session:status` to terminate immediately on explicit auth-required state
 
 ### Event-driven response completion
 
