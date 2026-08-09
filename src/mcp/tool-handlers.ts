@@ -21,6 +21,10 @@ import type {
   ConversationCatalogApplicationPort,
   ListConversationsRequest,
 } from '../ports/conversation-catalog-port.js';
+import type {
+  ConversationReaderApplicationPort,
+  GetConversationRequest,
+} from '../ports/conversation-reader-port.js';
 
 export interface WebSessionStatusToolInput {
   readonly provider: ProviderId;
@@ -59,6 +63,12 @@ export interface WebListConversationsToolInput {
   readonly profileId: ProfileId;
   readonly limit?: number;
   readonly cursor?: ConversationCursor;
+}
+
+export interface WebGetConversationToolInput {
+  readonly provider: ProviderId;
+  readonly profileId: ProfileId;
+  readonly conversationId: ConversationId;
 }
 
 export async function handleWebSessionStatus(
@@ -114,6 +124,37 @@ export async function handleWebListConversations(
         profileId: result.profileId,
         conversations: result.conversations,
         ...(result.nextCursor === undefined ? {} : { nextCursor: result.nextCursor }),
+      },
+    };
+  } catch (error) {
+    return toMcpToolError(error);
+  }
+}
+
+export async function handleWebGetConversation(
+  input: WebGetConversationToolInput,
+  application: Partial<ConversationReaderApplicationPort>,
+): Promise<CallToolResult> {
+  try {
+    const getConversation = application.getConversation;
+    if (getConversation === undefined) {
+      throw new Error('Conversation reader application capability is not configured.');
+    }
+    const request: GetConversationRequest = {
+      provider: input.provider,
+      profileId: input.profileId,
+      conversationId: input.conversationId,
+    };
+    const result = await getConversation.call(application, request);
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result.messages) }],
+      structuredContent: {
+        ok: true,
+        provider: result.provider,
+        profileId: result.profileId,
+        conversationId: result.conversationId,
+        ...(result.title === undefined ? {} : { title: result.title }),
+        messages: result.messages,
       },
     };
   } catch (error) {
@@ -323,6 +364,12 @@ function publicMessageFor(error: WebAutomationError): string {
       return 'The provider page is currently unavailable.';
     case 'PROVIDER_CHANGED':
       return 'The provider page behavior appears to have changed.';
+    case 'CONVERSATION_NOT_FOUND':
+      return 'The requested conversation could not be found.';
+    case 'CONVERSATION_INCOMPLETE':
+      return 'The requested conversation could not be read completely.';
+    case 'CONVERSATION_TOO_LARGE':
+      return 'The requested conversation is too large to return through this MCP tool.';
     case 'INPUT_PATH_NOT_ALLOWED':
       return 'The input path is outside the configured input directory or is not allowed.';
     case 'INPUT_FILE_NOT_FOUND':
