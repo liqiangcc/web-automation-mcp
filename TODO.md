@@ -119,6 +119,8 @@
 - [x] Implement ChatGPT conversation catalog with bounded virtual-scroll discovery and opaque cursor
 - [x] Add `ListConversationsUseCase`
 - [x] Add `web_list_conversations`
+- [x] Add executable `validate:conversations` disposable list -> paginate -> continue -> reopen acceptance runner
+- [ ] Run `npm run validate:conversations -- --profile default` on a real authenticated profile and obtain PASS
 - [ ] Implement ChatGPT conversation reader with explicit `conversationId` and completeness handling
 - [ ] Add `GetConversationUseCase`
 - [ ] Add `web_get_conversation`
