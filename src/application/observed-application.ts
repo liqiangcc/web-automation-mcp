@@ -9,6 +9,7 @@ import type {
   AskWithFilesResult,
 } from '../domain/conversation.js';
 import { WebAutomationError } from '../domain/errors.js';
+import type { ResponseCompletionMetadata } from '../domain/execution.js';
 import type {
   AutomationOperation,
   DiagnosticsBundle,
@@ -50,21 +51,33 @@ export class ObservedAutomationApplication
   }
 
   public ask(request: AskRequest): Promise<AskResult> {
-    return this.observe('ask', contextFor(request), () => this.inner.ask(request));
+    return this.observe('ask', contextFor(request), () => this.inner.ask(request), (result) =>
+      result.completion,
+    );
   }
 
   public askWithFiles(request: AskWithFilesRequest): Promise<AskWithFilesResult> {
-    return this.observe('ask_with_files', contextFor(request), async () => {
-      const askWithFiles = this.inner.askWithFiles;
-      if (askWithFiles === undefined) {
-        throw new Error('Attachment application capability is not configured.');
-      }
-      return askWithFiles.call(this.inner, request);
-    });
+    return this.observe(
+      'ask_with_files',
+      contextFor(request),
+      async () => {
+        const askWithFiles = this.inner.askWithFiles;
+        if (askWithFiles === undefined) {
+          throw new Error('Attachment application capability is not configured.');
+        }
+        return askWithFiles.call(this.inner, request);
+      },
+      (result) => result.completion,
+    );
   }
 
   public askToFile(request: AskToFileRequest): Promise<AskToFileResult> {
-    return this.observe('ask_to_file', contextFor(request), () => this.inner.askToFile(request));
+    return this.observe(
+      'ask_to_file',
+      contextFor(request),
+      () => this.inner.askToFile(request),
+      (result) => result.completion,
+    );
   }
 
   public sessionStatus(request: SessionStatusRequest): Promise<SessionStatusResult> {
@@ -87,6 +100,7 @@ export class ObservedAutomationApplication
     operation: AutomationOperation,
     context: SafeRequestContext,
     execute: () => Promise<T>,
+    completionForResult?: (result: T) => ResponseCompletionMetadata | undefined,
   ): Promise<T> {
     const requestId = this.createRequestId();
     const startedAt = this.now();
@@ -102,12 +116,14 @@ export class ObservedAutomationApplication
     try {
       const result = await execute();
       const finishedAt = this.now();
+      const completion = completionForResult?.(result);
       await this.safeRecord({
         requestId,
         operation,
         phase: 'SUCCESS',
         timestamp: finishedAt.toISOString(),
         durationMs: elapsedMs(startedAt, finishedAt),
+        ...completionFields(completion),
         ...context,
       });
       return result;
@@ -166,6 +182,22 @@ function contextFor(request: {
     provider: request.provider,
     profileId: request.profileId,
     hasConversationId: request.conversationId !== undefined,
+  };
+}
+
+function completionFields(completion: ResponseCompletionMetadata | undefined): {
+  readonly completionPath?: ResponseCompletionMetadata['path'];
+  readonly completionWaitMs?: number;
+  readonly completionLatencyMs?: number;
+} {
+  if (completion === undefined) {
+    return {};
+  }
+
+  return {
+    completionPath: completion.path,
+    completionWaitMs: completion.waitMs,
+    completionLatencyMs: completion.latencyMs,
   };
 }
 

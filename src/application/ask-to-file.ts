@@ -28,6 +28,7 @@ export class AskToFileUseCase {
       filePath: file.filePath,
       bytesWritten: file.bytesWritten,
       sha256: file.sha256,
+      ...(answer.completion === undefined ? {} : { completion: answer.completion }),
     };
   }
 }

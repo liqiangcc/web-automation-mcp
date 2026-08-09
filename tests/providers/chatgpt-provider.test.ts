@@ -5,7 +5,7 @@ import type { BrowserPagePort } from '../../src/ports/browser-port.js';
 import type { BrowserSessionPort } from '../../src/ports/browser-session-port.js';
 
 describe('ChatGptProvider', () => {
-  it('opens the requested conversation, runs the page workflow, captures the handle, and closes', async () => {
+  it('opens the requested conversation, propagates completion metadata, captures the handle, and closes', async () => {
     const page = fakePage();
     let closed = false;
     const opened: (string | undefined)[] = [];
@@ -30,9 +30,13 @@ describe('ChatGptProvider', () => {
         currentConversationId: () => 'conversation-42',
       }),
       createWorkflow: () => ({
-        ask: async (prompt) => {
+        ask: async () => 'world',
+        askWithMetadata: async (prompt) => {
           expect(prompt).toBe('hello');
-          return 'world';
+          return {
+            responseText: 'world',
+            completion: { path: 'fast', waitMs: 1_300, latencyMs: 400 },
+          };
         },
       }),
     });
@@ -42,6 +46,7 @@ describe('ChatGptProvider', () => {
     ).resolves.toEqual({
       conversationId: 'conversation-42',
       responseText: 'world',
+      completion: { path: 'fast', waitMs: 1_300, latencyMs: 400 },
     });
     expect(opened).toEqual(['existing']);
     expect(closed).toBe(true);

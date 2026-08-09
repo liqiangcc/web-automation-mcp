@@ -1,3 +1,4 @@
+import type { ResponseCompletionMetadata } from '../../domain/execution.js';
 import type { BrowserPagePort } from '../../ports/browser-port.js';
 import {
   AssistantResponseBaselineTracker,
@@ -29,6 +30,11 @@ export interface ChatGptPageWorkflowOptions {
   readonly completionDependencies?: CompletionDetectorDependencies;
 }
 
+export interface ChatGptPageWorkflowResult {
+  readonly responseText: string;
+  readonly completion: ResponseCompletionMetadata;
+}
+
 const DEFAULT_DOM_CHANGE_DEBOUNCE_MS = 75;
 
 export class ChatGptPageWorkflow {
@@ -37,17 +43,31 @@ export class ChatGptPageWorkflow {
     private readonly options: ChatGptPageWorkflowOptions = {},
   ) {}
 
-  public ask(prompt: string): Promise<string> {
+  public async ask(prompt: string): Promise<string> {
+    return (await this.askWithMetadata(prompt)).responseText;
+  }
+
+  public askWithMetadata(prompt: string): Promise<ChatGptPageWorkflowResult> {
     return this.execute(prompt);
   }
 
-  public askWithFiles(prompt: string, filePaths: readonly string[]): Promise<string> {
+  public async askWithFiles(prompt: string, filePaths: readonly string[]): Promise<string> {
+    return (await this.askWithFilesWithMetadata(prompt, filePaths)).responseText;
+  }
+
+  public askWithFilesWithMetadata(
+    prompt: string,
+    filePaths: readonly string[],
+  ): Promise<ChatGptPageWorkflowResult> {
     return this.execute(prompt, async () => {
       await new ChatGptAttachmentUploader(this.page).upload(filePaths);
     });
   }
 
-  private async execute(prompt: string, prepare?: () => Promise<void>): Promise<string> {
+  private async execute(
+    prompt: string,
+    prepare?: () => Promise<void>,
+  ): Promise<ChatGptPageWorkflowResult> {
     await requireAuthenticatedChatGptSession(this.page, this.options.authentication);
     await prepare?.();
 
@@ -69,8 +89,16 @@ export class ChatGptPageWorkflow {
       dependencies,
     );
     const completed = await completion.waitForCompletion();
+    const responseText = new ChatGptPlainTextResponseExtractor().extract(completed.responses, baseline);
 
-    return new ChatGptPlainTextResponseExtractor().extract(completed.responses, baseline);
+    return {
+      responseText,
+      completion: {
+        path: completed.completionPath,
+        waitMs: completed.elapsedMs,
+        latencyMs: completed.completionLatencyMs,
+      },
+    };
   }
 
   private createWakeupSource(

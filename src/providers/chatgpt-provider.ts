@@ -1,18 +1,22 @@
+import {
+  ChatGptConversationNavigator,
+  type ChatGptConversationNavigatorPort,
+} from '../adapters/chatgpt/conversation-navigator.js';
+import {
+  ChatGptPageWorkflow,
+  type ChatGptPageWorkflowResult,
+} from '../adapters/chatgpt/page-workflow.js';
+import type { BrowserPagePort } from '../ports/browser-port.js';
+import type { BrowserSessionPort } from '../ports/browser-session-port.js';
 import type {
   ProviderAskInput,
   ProviderAskOutput,
   ProviderPort,
 } from '../ports/provider-port.js';
-import type { BrowserPagePort } from '../ports/browser-port.js';
-import type { BrowserSessionPort } from '../ports/browser-session-port.js';
-import {
-  ChatGptConversationNavigator,
-  type ChatGptConversationNavigatorPort,
-} from '../adapters/chatgpt/conversation-navigator.js';
-import { ChatGptPageWorkflow } from '../adapters/chatgpt/page-workflow.js';
 
 interface ChatGptPageWorkflowPort {
   ask(prompt: string): Promise<string>;
+  askWithMetadata?(prompt: string): Promise<ChatGptPageWorkflowResult>;
 }
 
 export interface ChatGptProviderDependencies {
@@ -40,12 +44,18 @@ export class ChatGptProvider implements ProviderPort {
       const navigator = this.createNavigator(session.page);
       await navigator.open(input.conversationId);
 
-      const responseText = await this.createWorkflow(session.page).ask(input.prompt);
+      const workflow = this.createWorkflow(session.page);
+      const askWithMetadata = workflow.askWithMetadata;
+      const result =
+        askWithMetadata === undefined
+          ? { responseText: await workflow.ask(input.prompt) }
+          : await askWithMetadata.call(workflow, input.prompt);
       const conversationId = navigator.currentConversationId();
 
       return {
         conversationId,
-        responseText,
+        responseText: result.responseText,
+        ...('completion' in result ? { completion: result.completion } : {}),
       };
     } finally {
       await session.close();

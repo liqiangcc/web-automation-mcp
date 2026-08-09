@@ -32,6 +32,11 @@ class FakeLiveApplication implements AutomationApplicationPort, AttachmentApplic
       profileId: request.profileId,
       conversationId: request.conversationId ?? `conversation-${this.askRequests.length}`,
       responseText: `validation response\n${marker}`,
+      completion: {
+        path: 'fast',
+        waitMs: 1_200,
+        latencyMs: 400,
+      },
     };
   }
 
@@ -43,6 +48,11 @@ class FakeLiveApplication implements AutomationApplicationPort, AttachmentApplic
       conversationId: 'attachment-conversation',
       responseText: `ALPHA-7429 BETA-3141\n${marker}`,
       fileCount: request.files.length,
+      completion: {
+        path: 'fallback',
+        waitMs: 2_500,
+        latencyMs: 1_500,
+      },
     };
   }
 
@@ -99,7 +109,7 @@ describe('live validation', () => {
     });
   });
 
-  it('counts a request as successful only when the unique end marker is present', async () => {
+  it('counts a request as successful only when the unique end marker is present and summarizes completion latency', async () => {
     const application = new FakeLiveApplication();
     let clock = 0;
     const report = await runLiveValidation(application, {
@@ -119,6 +129,20 @@ describe('live validation', () => {
       incomplete: 0,
       failed: 0,
       passed: true,
+      completion: {
+        fast: 30,
+        fallback: 0,
+        unavailable: 0,
+        latencySamples: 30,
+        averageLatencyMs: 400,
+        p95LatencyMs: 400,
+        maxLatencyMs: 400,
+      },
+    });
+    expect(report.results[0]).toMatchObject({
+      completionPath: 'fast',
+      completionWaitMs: 1_200,
+      completionLatencyMs: 400,
     });
     expect(application.askRequests).toHaveLength(30);
     expect(
@@ -128,7 +152,7 @@ describe('live validation', () => {
     ).toHaveLength(4);
   });
 
-  it('validates attachment count, expected tokens, and completion marker', async () => {
+  it('validates attachment count, expected tokens, completion marker, and completion metadata', async () => {
     const application = new FakeLiveApplication();
     const results = await runAttachmentValidation(application, 'default', [
       {
@@ -144,6 +168,9 @@ describe('live validation', () => {
         id: 'multi',
         status: 'SUCCESS',
         fileCount: 2,
+        completionPath: 'fallback',
+        completionWaitMs: 2_500,
+        completionLatencyMs: 1_500,
       }),
     ]);
   });

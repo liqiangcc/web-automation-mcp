@@ -5,7 +5,7 @@ import type { BrowserPagePort } from '../../src/ports/browser-port.js';
 import type { BrowserSessionPort } from '../../src/ports/browser-session-port.js';
 
 describe('ChatGptAttachmentProvider', () => {
-  it('opens the conversation, runs the attachment workflow, captures the handle, and closes', async () => {
+  it('opens the conversation, propagates completion metadata, captures the handle, and closes', async () => {
     let closed = false;
     const opened: (string | undefined)[] = [];
     const sessions: BrowserSessionPort = {
@@ -24,10 +24,14 @@ describe('ChatGptAttachmentProvider', () => {
         currentConversationId: () => 'conversation-files-1',
       }),
       createWorkflow: () => ({
-        askWithFiles: async (prompt, filePaths) => {
+        askWithFiles: async () => 'done',
+        askWithFilesWithMetadata: async (prompt, filePaths) => {
           expect(prompt).toBe('analyze');
           expect(filePaths).toEqual(['/safe/a.pdf']);
-          return 'done';
+          return {
+            responseText: 'done',
+            completion: { path: 'fallback', waitMs: 2_800, latencyMs: 1_500 },
+          };
         },
       }),
     });
@@ -39,7 +43,11 @@ describe('ChatGptAttachmentProvider', () => {
         filePaths: ['/safe/a.pdf'],
         conversationId: 'existing',
       }),
-    ).resolves.toEqual({ conversationId: 'conversation-files-1', responseText: 'done' });
+    ).resolves.toEqual({
+      conversationId: 'conversation-files-1',
+      responseText: 'done',
+      completion: { path: 'fallback', waitMs: 2_800, latencyMs: 1_500 },
+    });
     expect(opened).toEqual(['existing']);
     expect(closed).toBe(true);
   });

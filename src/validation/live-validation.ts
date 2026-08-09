@@ -1,4 +1,5 @@
 import { WebAutomationError, type ExecutionErrorCode } from '../domain/errors.js';
+import type { ResponseCompletionMetadata, ResponseCompletionPath } from '../domain/execution.js';
 import type { AttachmentApplicationPort } from '../ports/attachment-application-port.js';
 import type { AutomationApplicationPort } from '../ports/automation-application-port.js';
 
@@ -30,6 +31,19 @@ export interface ValidationCaseResult {
   readonly conversationContinued: boolean;
   readonly exceeded30Seconds: boolean;
   readonly errorCode?: ExecutionErrorCode | 'INTERNAL_ERROR';
+  readonly completionPath?: ResponseCompletionPath;
+  readonly completionWaitMs?: number;
+  readonly completionLatencyMs?: number;
+}
+
+export interface CompletionValidationSummary {
+  readonly fast: number;
+  readonly fallback: number;
+  readonly unavailable: number;
+  readonly latencySamples: number;
+  readonly averageLatencyMs?: number;
+  readonly p95LatencyMs?: number;
+  readonly maxLatencyMs?: number;
 }
 
 export interface ValidationSummary {
@@ -43,6 +57,7 @@ export interface ValidationSummary {
   readonly passed: boolean;
   readonly over30Seconds: number;
   readonly failureCodes: Readonly<Record<string, number>>;
+  readonly completion: CompletionValidationSummary;
 }
 
 export interface LiveValidationReport {
@@ -68,6 +83,9 @@ export interface AttachmentValidationResult {
   readonly fileCount: number;
   readonly responseChars?: number;
   readonly errorCode?: ExecutionErrorCode | 'INTERNAL_ERROR';
+  readonly completionPath?: ResponseCompletionPath;
+  readonly completionWaitMs?: number;
+  readonly completionLatencyMs?: number;
 }
 
 export interface LiveValidationOptions {
@@ -169,6 +187,7 @@ export async function runLiveValidation(
         responseChars: result.responseText.length,
         conversationContinued: existingConversationId !== undefined,
         exceeded30Seconds: durationMs > 30_000,
+        ...completionFields(result.completion),
       });
     } catch (error) {
       const durationMs = Math.max(0, now() - caseStartedAt);
@@ -231,6 +250,7 @@ export async function runAttachmentValidation(
         durationMs: Math.max(0, now() - startedAt),
         fileCount: result.fileCount,
         responseChars: result.responseText.length,
+        ...completionFields(result.completion),
       });
     } catch (error) {
       results.push({
@@ -295,6 +315,55 @@ function summarizeValidation(
     passed: results.length === requested && successRate >= targetSuccessRate,
     over30Seconds: results.filter((result) => result.exceeded30Seconds).length,
     failureCodes,
+    completion: summarizeCompletion(results),
+  };
+}
+
+function summarizeCompletion(
+  results: readonly ValidationCaseResult[],
+): CompletionValidationSummary {
+  const latencies = results
+    .map((result) => result.completionLatencyMs)
+    .filter((value): value is number => value !== undefined)
+    .sort((left, right) => left - right);
+  const averageLatencyMs =
+    latencies.length === 0
+      ? undefined
+      : Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length);
+  const p95LatencyMs = percentile(latencies, 0.95);
+  const maxLatencyMs = latencies.at(-1);
+
+  return {
+    fast: results.filter((result) => result.completionPath === 'fast').length,
+    fallback: results.filter((result) => result.completionPath === 'fallback').length,
+    unavailable: results.filter((result) => result.completionPath === undefined).length,
+    latencySamples: latencies.length,
+    ...(averageLatencyMs === undefined ? {} : { averageLatencyMs }),
+    ...(p95LatencyMs === undefined ? {} : { p95LatencyMs }),
+    ...(maxLatencyMs === undefined ? {} : { maxLatencyMs }),
+  };
+}
+
+function percentile(values: readonly number[], percentileValue: number): number | undefined {
+  if (values.length === 0) {
+    return undefined;
+  }
+  const index = Math.max(0, Math.ceil(values.length * percentileValue) - 1);
+  return values[index];
+}
+
+function completionFields(completion: ResponseCompletionMetadata | undefined): {
+  readonly completionPath?: ResponseCompletionPath;
+  readonly completionWaitMs?: number;
+  readonly completionLatencyMs?: number;
+} {
+  if (completion === undefined) {
+    return {};
+  }
+  return {
+    completionPath: completion.path,
+    completionWaitMs: completion.waitMs,
+    completionLatencyMs: completion.latencyMs,
   };
 }
 

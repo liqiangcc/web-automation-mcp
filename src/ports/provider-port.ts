@@ -1,4 +1,5 @@
 import type { ConversationId, ProfileId, ProviderId } from '../domain/conversation.js';
+import type { ResponseCompletionMetadata } from '../domain/execution.js';
 
 export interface ProviderAskInput {
   readonly profileId: ProfileId;
@@ -9,6 +10,7 @@ export interface ProviderAskInput {
 export interface ProviderAskOutput {
   readonly conversationId: ConversationId;
   readonly responseText: string;
+  readonly completion?: ResponseCompletionMetadata;
 }
 
 export interface ProviderPort {

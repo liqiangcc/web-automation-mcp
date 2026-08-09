@@ -1,4 +1,5 @@
 import type { ConversationId, ProfileId, ProviderId } from '../domain/conversation.js';
+import type { ResponseCompletionMetadata } from '../domain/execution.js';
 
 export interface ProviderAskWithFilesInput {
   readonly profileId: ProfileId;
@@ -10,6 +11,7 @@ export interface ProviderAskWithFilesInput {
 export interface ProviderAskWithFilesOutput {
   readonly conversationId: ConversationId;
   readonly responseText: string;
+  readonly completion?: ResponseCompletionMetadata;
 }
 
 export interface ProviderAttachmentPort {

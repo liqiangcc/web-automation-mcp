@@ -36,6 +36,7 @@ export interface CompletionResult {
   readonly sawGeneratingSignal: boolean;
   readonly elapsedMs: number;
   readonly completionPath: 'fast' | 'fallback';
+  readonly completionLatencyMs: number;
 }
 
 const DEFAULT_START_TIMEOUT_MS = 30_000;
@@ -137,6 +138,7 @@ export class ChatGptCompletionDetector {
               sawGeneratingSignal,
               elapsedMs: sampledAt - startedAt,
               completionPath: candidatePath,
+              completionLatencyMs: Math.max(0, sampledAt - candidateSince),
             };
           }
         }

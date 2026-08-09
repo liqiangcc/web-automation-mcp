@@ -1,3 +1,5 @@
+import type { ResponseCompletionMetadata } from './execution.js';
+
 export type ProviderId = 'chatgpt';
 export type ProfileId = string;
 export type ConversationId = string;
@@ -14,6 +16,7 @@ export interface AskResult {
   readonly profileId: ProfileId;
   readonly conversationId: ConversationId;
   readonly responseText: string;
+  readonly completion?: ResponseCompletionMetadata;
 }
 
 export interface AskWithFilesRequest extends AskRequest {
@@ -36,4 +39,5 @@ export interface AskToFileResult {
   readonly filePath: string;
   readonly bytesWritten: number;
   readonly sha256: string;
+  readonly completion?: ResponseCompletionMetadata;
 }

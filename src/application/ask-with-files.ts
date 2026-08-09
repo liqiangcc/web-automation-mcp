@@ -46,6 +46,7 @@ export class AskWithFilesUseCase {
       conversationId: result.conversationId,
       responseText: result.responseText,
       fileCount: files.length,
+      ...(result.completion === undefined ? {} : { completion: result.completion }),
     };
   }
 }

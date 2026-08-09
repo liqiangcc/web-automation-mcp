@@ -12,12 +12,17 @@ class FakeChatGptProvider implements ProviderPort {
     return {
       conversationId: input.conversationId ?? 'conversation-1',
       responseText: 'fake response',
+      completion: {
+        path: 'fast' as const,
+        waitMs: 1_200,
+        latencyMs: 400,
+      },
     };
   }
 }
 
 describe('AskUseCase', () => {
-  it('delegates semantic ask behavior to the provider port', async () => {
+  it('delegates semantic ask behavior to the provider port and preserves safe execution metadata', async () => {
     const provider = new FakeChatGptProvider();
     const useCase = new AskUseCase(new Map([['chatgpt', provider]]));
 
@@ -36,6 +41,11 @@ describe('AskUseCase', () => {
       profileId: 'chatgpt-default',
       conversationId: 'conversation-1',
       responseText: 'fake response',
+      completion: {
+        path: 'fast',
+        waitMs: 1_200,
+        latencyMs: 400,
+      },
     });
   });
 

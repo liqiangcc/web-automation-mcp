@@ -4,6 +4,16 @@ export type SessionStatus =
   | 'PROVIDER_UNAVAILABLE'
   | 'UNKNOWN';
 
+export type ResponseCompletionPath = 'fast' | 'fallback';
+
+export interface ResponseCompletionMetadata {
+  readonly path: ResponseCompletionPath;
+  /** Time spent inside completion detection, from submission baseline to completed response. */
+  readonly waitMs: number;
+  /** Time from the final completion candidate to the completed return. */
+  readonly latencyMs: number;
+}
+
 export type ExecutionStage =
   | 'ACQUIRE_PROFILE'
   | 'PROBE_SESSION'

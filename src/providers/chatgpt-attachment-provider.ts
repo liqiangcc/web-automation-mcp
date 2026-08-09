@@ -2,7 +2,10 @@ import {
   ChatGptConversationNavigator,
   type ChatGptConversationNavigatorPort,
 } from '../adapters/chatgpt/conversation-navigator.js';
-import { ChatGptPageWorkflow } from '../adapters/chatgpt/page-workflow.js';
+import {
+  ChatGptPageWorkflow,
+  type ChatGptPageWorkflowResult,
+} from '../adapters/chatgpt/page-workflow.js';
 import type { BrowserPagePort } from '../ports/browser-port.js';
 import type { BrowserSessionPort } from '../ports/browser-session-port.js';
 import type {
@@ -13,6 +16,10 @@ import type {
 
 interface ChatGptAttachmentWorkflowPort {
   askWithFiles(prompt: string, filePaths: readonly string[]): Promise<string>;
+  askWithFilesWithMetadata?(
+    prompt: string,
+    filePaths: readonly string[],
+  ): Promise<ChatGptPageWorkflowResult>;
 }
 
 export interface ChatGptAttachmentProviderDependencies {
@@ -42,13 +49,16 @@ export class ChatGptAttachmentProvider implements ProviderAttachmentPort {
     try {
       const navigator = this.createNavigator(session.page);
       await navigator.open(input.conversationId);
-      const responseText = await this.createWorkflow(session.page).askWithFiles(
-        input.prompt,
-        input.filePaths,
-      );
+      const workflow = this.createWorkflow(session.page);
+      const askWithFilesWithMetadata = workflow.askWithFilesWithMetadata;
+      const result =
+        askWithFilesWithMetadata === undefined
+          ? { responseText: await workflow.askWithFiles(input.prompt, input.filePaths) }
+          : await askWithFilesWithMetadata.call(workflow, input.prompt, input.filePaths);
       return {
         conversationId: navigator.currentConversationId(),
-        responseText,
+        responseText: result.responseText,
+        ...('completion' in result ? { completion: result.completion } : {}),
       };
     } finally {
       await session.close();

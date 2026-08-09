@@ -1,5 +1,6 @@
 import type { ProfileId, ProviderId } from './conversation.js';
 import type { ExecutionErrorCode } from './errors.js';
+import type { ResponseCompletionPath } from './execution.js';
 
 export type AutomationOperation =
   | 'ask'
@@ -25,6 +26,9 @@ export interface LifecycleEvent extends SafeRequestContext {
   readonly timestamp: string;
   readonly durationMs?: number;
   readonly errorCode?: ObservabilityErrorCode;
+  readonly completionPath?: ResponseCompletionPath;
+  readonly completionWaitMs?: number;
+  readonly completionLatencyMs?: number;
 }
 
 export interface DiagnosticsBundle extends SafeRequestContext {

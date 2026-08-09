@@ -23,7 +23,7 @@ class RecordingDiagnosticsSink implements DiagnosticsBundleSink {
 }
 
 describe('ObservedAutomationApplication', () => {
-  it('logs safe request lifecycle metadata without prompt or response content', async () => {
+  it('logs safe request and completion metadata without prompt or response content', async () => {
     const lifecycle = new RecordingLifecycleSink();
     const diagnostics = new RecordingDiagnosticsSink();
     let clock = 1_000;
@@ -55,6 +55,9 @@ describe('ObservedAutomationApplication', () => {
       operation: 'ask',
       phase: 'SUCCESS',
       durationMs: 25,
+      completionPath: 'fast',
+      completionWaitMs: 1_500,
+      completionLatencyMs: 400,
     });
 
     const serialized = JSON.stringify(lifecycle.events);
@@ -158,6 +161,11 @@ function createApplication(
         profileId: request.profileId,
         conversationId: request.conversationId ?? 'conversation-1',
         responseText: 'secret response text',
+        completion: {
+          path: 'fast' as const,
+          waitMs: 1_500,
+          latencyMs: 400,
+        },
       })),
     askToFile:
       overrides.askToFile ??

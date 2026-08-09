@@ -32,6 +32,7 @@ export class AskUseCase {
       profileId: request.profileId,
       conversationId: result.conversationId,
       responseText: result.responseText,
+      ...(result.completion === undefined ? {} : { completion: result.completion }),
     };
   }
 }
