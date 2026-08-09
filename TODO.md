@@ -46,10 +46,10 @@
 ## Phase 4 - MCP
 
 - [x] `web_session_status`
-- [ ] `web_new_chat`
+- [x] `web_new_chat`
 - [x] `web_ask`
-- [ ] `web_get_last_response`
-- [ ] MCP Inspector smoke test
+- [x] `web_get_last_response`
+- [x] MCP Inspector CLI `tools/list` smoke test
 
 ## Phase 5 - Reliability
 

@@ -13,6 +13,7 @@
     "login": "npm run build --silent && node dist/cli/login-main.js",
     "session:status": "npm run build --silent && node dist/cli/session-status-main.js",
     "verify:persistence": "npm run build --silent && node dist/cli/verify-persistence-main.js",
+    "mcp:smoke": "node scripts/mcp-inspector-smoke.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint src tests",
     "format": "prettier --write .",

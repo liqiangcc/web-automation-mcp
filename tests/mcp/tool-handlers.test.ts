@@ -3,11 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { WebAutomationError } from '../../src/domain/errors.js';
 import {
   handleWebAsk,
+  handleWebGetLastResponse,
+  handleWebNewChat,
   handleWebSessionStatus,
   toMcpToolError,
 } from '../../src/mcp/tool-handlers.js';
 import type {
   AutomationApplicationPort,
+  LastResponseRequest,
+  NewChatRequest,
   SessionStatusRequest,
 } from '../../src/ports/automation-application-port.js';
 import type { AskRequest, AskResult } from '../../src/domain/conversation.js';
@@ -15,6 +19,8 @@ import type { AskRequest, AskResult } from '../../src/domain/conversation.js';
 class FakeApplication implements AutomationApplicationPort {
   public askRequests: AskRequest[] = [];
   public statusRequests: SessionStatusRequest[] = [];
+  public newChatRequests: NewChatRequest[] = [];
+  public lastResponseRequests: LastResponseRequest[] = [];
 
   public async ask(request: AskRequest): Promise<AskResult> {
     this.askRequests.push(request);
@@ -32,6 +38,25 @@ class FakeApplication implements AutomationApplicationPort {
       provider: request.provider,
       profileId: request.profileId,
       status: 'AUTHENTICATED' as const,
+    };
+  }
+
+  public async newChat(request: NewChatRequest) {
+    this.newChatRequests.push(request);
+    return {
+      provider: request.provider,
+      profileId: request.profileId,
+      status: 'READY' as const,
+    };
+  }
+
+  public async getLastResponse(request: LastResponseRequest) {
+    this.lastResponseRequests.push(request);
+    return {
+      provider: request.provider,
+      profileId: request.profileId,
+      conversationId: request.conversationId,
+      responseText: 'latest answer',
     };
   }
 }
@@ -52,7 +77,24 @@ describe('MCP tool handlers', () => {
       profileId: 'default',
       status: 'AUTHENTICATED',
     });
-    expect(application.statusRequests).toEqual([
+  });
+
+  it('returns READY for a fresh chat and does not invent a conversation id', async () => {
+    const application = new FakeApplication();
+
+    const result = await handleWebNewChat(
+      { provider: 'chatgpt', profileId: 'default' },
+      application,
+    );
+
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      provider: 'chatgpt',
+      profileId: 'default',
+      status: 'READY',
+      conversationId: null,
+    });
+    expect(application.newChatRequests).toEqual([
       { provider: 'chatgpt', profileId: 'default' },
     ]);
   });
@@ -78,14 +120,28 @@ describe('MCP tool handlers', () => {
       conversationId: 'conversation-0',
       responseText: 'final answer',
     });
-    expect(application.askRequests).toEqual([
+  });
+
+  it('returns the latest assistant response for an existing conversation', async () => {
+    const application = new FakeApplication();
+
+    const result = await handleWebGetLastResponse(
       {
         provider: 'chatgpt',
         profileId: 'default',
-        prompt: 'Explain SRP',
-        conversationId: 'conversation-0',
+        conversationId: 'conversation-1',
       },
-    ]);
+      application,
+    );
+
+    expect(result.content).toEqual([{ type: 'text', text: 'latest answer' }]);
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      provider: 'chatgpt',
+      profileId: 'default',
+      conversationId: 'conversation-1',
+      responseText: 'latest answer',
+    });
   });
 
   it('redacts internal details from typed operational errors', () => {

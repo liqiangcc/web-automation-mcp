@@ -2,6 +2,8 @@ import type { CallToolResult } from '@modelcontextprotocol/server';
 
 import type {
   AutomationApplicationPort,
+  LastResponseRequest,
+  NewChatRequest,
   SessionStatusRequest,
 } from '../ports/automation-application-port.js';
 import type { AskRequest, ConversationId, ProfileId, ProviderId } from '../domain/conversation.js';
@@ -19,6 +21,17 @@ export interface WebAskToolInput {
   readonly conversationId?: ConversationId;
 }
 
+export interface WebNewChatToolInput {
+  readonly provider: ProviderId;
+  readonly profileId: ProfileId;
+}
+
+export interface WebGetLastResponseToolInput {
+  readonly provider: ProviderId;
+  readonly profileId: ProfileId;
+  readonly conversationId: ConversationId;
+}
+
 export async function handleWebSessionStatus(
   input: WebSessionStatusToolInput,
   application: AutomationApplicationPort,
@@ -29,16 +42,14 @@ export async function handleWebSessionStatus(
       profileId: input.profileId,
     };
     const result = await application.sessionStatus(request);
-    const structuredContent = {
-      ok: true,
-      provider: result.provider,
-      profileId: result.profileId,
-      status: result.status,
-    };
-
     return {
       content: [{ type: 'text', text: result.status }],
-      structuredContent,
+      structuredContent: {
+        ok: true,
+        provider: result.provider,
+        profileId: result.profileId,
+        status: result.status,
+      },
     };
   } catch (error) {
     return toMcpToolError(error);
@@ -59,17 +70,66 @@ export async function handleWebAsk(
         : { conversationId: input.conversationId }),
     };
     const result = await application.ask(request);
-    const structuredContent = {
-      ok: true,
-      provider: result.provider,
-      profileId: result.profileId,
-      conversationId: result.conversationId,
-      responseText: result.responseText,
-    };
-
     return {
       content: [{ type: 'text', text: result.responseText }],
-      structuredContent,
+      structuredContent: {
+        ok: true,
+        provider: result.provider,
+        profileId: result.profileId,
+        conversationId: result.conversationId,
+        responseText: result.responseText,
+      },
+    };
+  } catch (error) {
+    return toMcpToolError(error);
+  }
+}
+
+export async function handleWebNewChat(
+  input: WebNewChatToolInput,
+  application: AutomationApplicationPort,
+): Promise<CallToolResult> {
+  try {
+    const request: NewChatRequest = {
+      provider: input.provider,
+      profileId: input.profileId,
+    };
+    const result = await application.newChat(request);
+    return {
+      content: [{ type: 'text', text: result.status }],
+      structuredContent: {
+        ok: true,
+        provider: result.provider,
+        profileId: result.profileId,
+        status: result.status,
+        conversationId: null,
+      },
+    };
+  } catch (error) {
+    return toMcpToolError(error);
+  }
+}
+
+export async function handleWebGetLastResponse(
+  input: WebGetLastResponseToolInput,
+  application: AutomationApplicationPort,
+): Promise<CallToolResult> {
+  try {
+    const request: LastResponseRequest = {
+      provider: input.provider,
+      profileId: input.profileId,
+      conversationId: input.conversationId,
+    };
+    const result = await application.getLastResponse(request);
+    return {
+      content: [{ type: 'text', text: result.responseText }],
+      structuredContent: {
+        ok: true,
+        provider: result.provider,
+        profileId: result.profileId,
+        conversationId: result.conversationId,
+        responseText: result.responseText,
+      },
     };
   } catch (error) {
     return toMcpToolError(error);

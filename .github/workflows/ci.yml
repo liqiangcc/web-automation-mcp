@@ -34,3 +34,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: MCP Inspector smoke test
+        run: npm run mcp:smoke

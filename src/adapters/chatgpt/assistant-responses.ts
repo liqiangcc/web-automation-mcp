@@ -66,6 +66,16 @@ export function newestAssistantResponseAfter(
   return undefined;
 }
 
+export function lastAssistantResponse(responses: readonly string[]): string | undefined {
+  for (let index = responses.length - 1; index >= 0; index -= 1) {
+    const response = responses[index];
+    if (response !== undefined && response.trim().length > 0) {
+      return response.trim();
+    }
+  }
+  return undefined;
+}
+
 function normalizeResponseText(value: string): string {
   return value.replaceAll('\u00a0', ' ').trim();
 }

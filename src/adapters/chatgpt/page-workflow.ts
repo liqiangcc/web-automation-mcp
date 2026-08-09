@@ -1,9 +1,9 @@
-import { WebAutomationError } from '../../domain/errors.js';
 import type { BrowserPagePort } from '../../ports/browser-port.js';
 import {
   AssistantResponseBaselineTracker,
   ChatGptAssistantResponseReader,
 } from './assistant-responses.js';
+import { requireAuthenticatedChatGptSession } from './authentication.js';
 import {
   ChatGptCompletionDetector,
   ChatGptGenerationProbe,
@@ -12,7 +12,6 @@ import {
 } from './completion-detector.js';
 import { ChatGptPromptSubmitter } from './prompt-submit.js';
 import { ChatGptPlainTextResponseExtractor } from './response-extractor.js';
-import { ChatGptSessionProbe } from './session-probe.js';
 
 export interface ChatGptPageWorkflowOptions {
   readonly completion?: CompletionDetectorOptions;
@@ -26,16 +25,7 @@ export class ChatGptPageWorkflow {
   ) {}
 
   public async ask(prompt: string): Promise<string> {
-    const sessionStatus = await new ChatGptSessionProbe(this.page).check();
-    if (sessionStatus === 'AUTH_REQUIRED') {
-      throw new WebAutomationError('AUTH_REQUIRED', 'ChatGPT browser profile is not authenticated');
-    }
-    if (sessionStatus === 'UNKNOWN') {
-      throw new WebAutomationError(
-        'PROVIDER_UNAVAILABLE',
-        'ChatGPT page is not in a recognized authenticated state',
-      );
-    }
+    await requireAuthenticatedChatGptSession(this.page);
 
     const responses = new ChatGptAssistantResponseReader(this.page);
     const baseline = await new AssistantResponseBaselineTracker(responses).capture();
