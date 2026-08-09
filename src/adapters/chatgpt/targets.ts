@@ -6,7 +6,8 @@ export type ChatGptSemanticTarget =
   | 'prompt-submit'
   | 'file-input'
   | 'assistant-response'
-  | 'generation-stop';
+  | 'generation-stop'
+  | 'conversation-link';
 
 export type ChatGptTargetRegistry = Readonly<
   Partial<Record<ChatGptSemanticTarget, readonly LocatorCandidate[]>>
@@ -42,4 +43,5 @@ export const CHATGPT_TARGETS = {
     { kind: 'role', role: 'button', name: 'Stop generating' },
     { kind: 'role', role: 'button', name: 'Stop streaming' },
   ],
+  'conversation-link': [{ kind: 'css', value: 'a[href^="/c/"]' }],
 } satisfies Readonly<Record<ChatGptSemanticTarget, readonly LocatorCandidate[]>>;
