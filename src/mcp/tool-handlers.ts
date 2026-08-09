@@ -370,6 +370,10 @@ function publicMessageFor(error: WebAutomationError): string {
       return 'The requested conversation could not be read completely.';
     case 'CONVERSATION_TOO_LARGE':
       return 'The requested conversation is too large to return through this MCP tool.';
+    case 'CONVERSATION_DELETE_FAILED':
+      return 'The requested conversation could not be deleted safely.';
+    case 'CONVERSATION_DELETE_NOT_CONFIRMED':
+      return 'The provider accepted the delete interaction, but deletion could not be positively confirmed.';
     case 'INPUT_PATH_NOT_ALLOWED':
       return 'The input path is outside the configured input directory or is not allowed.';
     case 'INPUT_FILE_NOT_FOUND':
