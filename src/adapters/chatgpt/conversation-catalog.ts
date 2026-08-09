@@ -8,6 +8,7 @@ import type {
 import { WebAutomationError } from '../../domain/errors.js';
 import type { BrowserPagePort, LocatorCandidate } from '../../ports/browser-port.js';
 import type { ConversationCatalogInput } from '../../ports/conversation-catalog-port.js';
+import { ChatGptPageHealthProbe, type ChatGptPageHealth } from './page-health.js';
 import { ChatGptTargetResolver } from './target-resolver.js';
 
 const MAX_STALLED_ROUNDS = 3;
@@ -32,11 +33,7 @@ export class ChatGptConversationCatalog {
       );
     }
 
-    const locator = await new ChatGptTargetResolver(this.page).findExisting('conversation-link');
-    if (locator === undefined) {
-      return { conversations: [] };
-    }
-
+    const locator = await this.requireConversationLocator();
     const afterConversationId = decodeCursor(input.cursor);
     const seen = new Set<string>();
     const conversations: ConversationSummary[] = [];
@@ -76,7 +73,10 @@ export class ChatGptConversationCatalog {
           const pageItems = conversations.slice(0, input.limit);
           const last = pageItems[pageItems.length - 1];
           if (last === undefined) {
-            return { conversations: [] };
+            throw new WebAutomationError(
+              'PROVIDER_CHANGED',
+              'Conversation pagination produced an invalid provider state.',
+            );
           }
           return {
             conversations: pageItems,
@@ -86,11 +86,14 @@ export class ChatGptConversationCatalog {
       }
 
       stalledRounds = semanticProgress ? 0 : stalledRounds + 1;
-      if (snapshots.length === 0 || stalledRounds >= MAX_STALLED_ROUNDS) {
+      if (stalledRounds >= MAX_STALLED_ROUNDS) {
         break;
       }
 
-      await tryScrollToLast(this.page, locator, snapshots.length - 1);
+      if (snapshots.length > 0) {
+        await tryScrollToLast(this.page, locator, snapshots.length - 1);
+      }
+
       const waitForDomChange = this.page.waitForDomChange;
       if (waitForDomChange === undefined) {
         break;
@@ -105,7 +108,44 @@ export class ChatGptConversationCatalog {
       );
     }
 
+    if (seen.size === 0) {
+      await throwForUnverifiableHistory(this.page);
+    }
+
     return { conversations };
+  }
+
+  private async requireConversationLocator(): Promise<LocatorCandidate> {
+    const resolver = new ChatGptTargetResolver(this.page);
+    let lastHealth: ChatGptPageHealth = 'UNKNOWN';
+
+    for (let round = 0; round < MAX_STALLED_ROUNDS; round += 1) {
+      const locator = await resolver.findExisting('conversation-link');
+      if (locator !== undefined) {
+        return locator;
+      }
+
+      lastHealth = await new ChatGptPageHealthProbe(this.page).check();
+      throwIfDegraded(lastHealth);
+
+      const waitForDomChange = this.page.waitForDomChange;
+      if (waitForDomChange === undefined || round === MAX_STALLED_ROUNDS - 1) {
+        break;
+      }
+      await waitForDomChange.call(this.page, { timeoutMs: DOM_WAIT_MS, debounceMs: 75 });
+    }
+
+    if (lastHealth === 'HEALTHY') {
+      throw new WebAutomationError(
+        'PROVIDER_CHANGED',
+        'Authenticated ChatGPT page did not expose a verifiable conversation history state.',
+      );
+    }
+
+    throw new WebAutomationError(
+      'PROVIDER_UNAVAILABLE',
+      'ChatGPT conversation history did not become ready during bounded stabilization.',
+    );
   }
 }
 
@@ -122,12 +162,66 @@ async function tryScrollToLast(
   }
 }
 
+async function throwForUnverifiableHistory(page: BrowserPagePort): Promise<never> {
+  const health = await new ChatGptPageHealthProbe(page).check();
+  throwIfDegraded(health);
+
+  if (health === 'HEALTHY') {
+    throw new WebAutomationError(
+      'PROVIDER_CHANGED',
+      'ChatGPT history locator was present but produced no valid conversation identities.',
+    );
+  }
+
+  throw new WebAutomationError(
+    'PROVIDER_UNAVAILABLE',
+    'ChatGPT conversation history could not be verified.',
+  );
+}
+
+function throwIfDegraded(health: ChatGptPageHealth): void {
+  if (health === 'RATE_LIMITED') {
+    throw new WebAutomationError(
+      'PROVIDER_RATE_LIMITED',
+      'ChatGPT is temporarily limiting requests for this browser session.',
+    );
+  }
+  if (health === 'PROVIDER_ERROR') {
+    throw new WebAutomationError(
+      'PROVIDER_UNAVAILABLE',
+      'ChatGPT reported an error while loading conversation history.',
+    );
+  }
+}
+
 function parseConversationId(href: string | null | undefined): string | undefined {
   if (href === null || href === undefined) {
     return undefined;
   }
-  const match = href.match(/^\/c\/([^/?#]+)/);
-  return match?.[1];
+
+  const relativeMatch = href.match(/^\/c\/([^/?#]+)/);
+  if (relativeMatch?.[1] !== undefined) {
+    return decodeConversationId(relativeMatch[1]);
+  }
+
+  try {
+    const url = new URL(href);
+    const absoluteMatch = url.pathname.match(/^\/c\/([^/?#]+)/);
+    if (absoluteMatch?.[1] === undefined) {
+      return undefined;
+    }
+    return decodeConversationId(absoluteMatch[1]);
+  } catch {
+    return undefined;
+  }
+}
+
+function decodeConversationId(value: string): string | undefined {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
 }
 
 function encodeCursor(afterConversationId: string): ConversationCursor {
