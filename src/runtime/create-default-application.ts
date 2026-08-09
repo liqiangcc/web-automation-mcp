@@ -1,6 +1,11 @@
 import { PlaywrightBrowserAdapter } from '../adapters/playwright/playwright-browser.js';
 import { AskUseCase } from '../application/ask.js';
 import { ConversationUseCases } from '../application/conversation.js';
+import { ObservedAutomationApplication } from '../application/observed-application.js';
+import {
+  FileDiagnosticsBundleSink,
+  JsonLineLifecycleSink,
+} from '../infrastructure/observability.js';
 import type { AutomationApplicationPort } from '../ports/automation-application-port.js';
 import { ChatGptConversationProvider } from '../providers/chatgpt-conversation-provider.js';
 import { ChatGptProvider } from '../providers/chatgpt-provider.js';
@@ -17,10 +22,15 @@ export function createDefaultAutomationApplication(): AutomationApplicationPort 
     new Map([[conversationProvider.id, conversationProvider]]),
   );
 
-  return {
+  const application: AutomationApplicationPort = {
     ask: (request) => askUseCase.execute(request),
     sessionStatus: (request) => sessionStatusProvider.check(request.profileId),
     newChat: (request) => conversationUseCases.newChat(request),
     getLastResponse: (request) => conversationUseCases.getLastResponse(request),
   };
+
+  return new ObservedAutomationApplication(application, {
+    lifecycle: new JsonLineLifecycleSink(),
+    diagnostics: new FileDiagnosticsBundleSink(),
+  });
 }
