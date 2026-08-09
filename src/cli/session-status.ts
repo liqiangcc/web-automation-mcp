@@ -8,6 +8,9 @@ import { ProfileLock } from '../session/profile-lock.js';
 import { ProfilePathResolver } from '../session/profile-path.js';
 import { SessionManager } from '../session/session-manager.js';
 
+const DEFAULT_UNKNOWN_STABILIZATION_TIMEOUT_MS = 5_000;
+const DEFAULT_POLL_INTERVAL_MS = 250;
+
 export interface SessionStatusCommand {
   readonly profileId: string;
   readonly headless?: boolean;
@@ -64,8 +67,9 @@ export async function checkSessionStatus(
     }
 
     const status = await new SessionManager(dependencies.createProbe(page)).waitForAuthenticated({
-      timeoutMs: command.timeoutMs ?? 60_000,
-      pollIntervalMs: command.pollIntervalMs ?? 250,
+      timeoutMs: command.timeoutMs ?? DEFAULT_UNKNOWN_STABILIZATION_TIMEOUT_MS,
+      pollIntervalMs: command.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS,
+      terminalStatuses: ['AUTH_REQUIRED'],
     });
     return { profileId: command.profileId, status };
   } finally {
