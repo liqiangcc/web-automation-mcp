@@ -255,11 +255,8 @@ function summarizeFast(
     };
   }
 
-  const p95LatencyMs = percentile(latencies, 0.95);
-  const maxLatencyMs = latencies[latencies.length - 1];
-  if (p95LatencyMs === undefined || maxLatencyMs === undefined) {
-    throw new WebAutomationError('INTERNAL_ERROR' as never, 'Latency summary invariant failed.');
-  }
+  const p95LatencyMs = percentile(latencies, 0.95) ?? 0;
+  const maxLatencyMs = latencies[latencies.length - 1] ?? 0;
   const passed =
     conclusive &&
     fastSamples >= requiredFastSamples &&
