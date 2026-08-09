@@ -38,6 +38,11 @@ import type {
   ExportConversationResult,
 } from '../ports/conversation-export-port.js';
 import type {
+  ConversationMutationApplicationPort,
+  DeleteConversationRequest,
+  DeleteConversationResult,
+} from '../ports/conversation-mutation-port.js';
+import type {
   ConversationReaderApplicationPort,
   GetConversationRequest,
   GetConversationResult,
@@ -57,7 +62,8 @@ export class ObservedAutomationApplication
     AttachmentApplicationPort,
     ConversationCatalogApplicationPort,
     ConversationReaderApplicationPort,
-    ConversationExportApplicationPort
+    ConversationExportApplicationPort,
+    ConversationMutationApplicationPort
 {
   private readonly createRequestId: () => string;
   private readonly now: () => Date;
@@ -67,7 +73,8 @@ export class ObservedAutomationApplication
       Partial<AttachmentApplicationPort> &
       Partial<ConversationCatalogApplicationPort> &
       Partial<ConversationReaderApplicationPort> &
-      Partial<ConversationExportApplicationPort>,
+      Partial<ConversationExportApplicationPort> &
+      Partial<ConversationMutationApplicationPort>,
     private readonly dependencies: ObservedAutomationApplicationDependencies,
   ) {
     this.createRequestId = dependencies.createRequestId ?? randomUUID;
@@ -149,6 +156,16 @@ export class ObservedAutomationApplication
         throw new Error('Conversation export capability is not configured.');
       }
       return exportConversationToFile.call(this.inner, request);
+    });
+  }
+
+  public deleteConversation(request: DeleteConversationRequest): Promise<DeleteConversationResult> {
+    return this.observe('delete_conversation', contextFor(request), async () => {
+      const deleteConversation = this.inner.deleteConversation;
+      if (deleteConversation === undefined) {
+        throw new Error('Conversation mutation capability is not configured.');
+      }
+      return deleteConversation.call(this.inner, request);
     });
   }
 
